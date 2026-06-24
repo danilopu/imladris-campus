@@ -150,9 +150,14 @@ function boot() {
 
   setTimeout(() => document.getElementById('loader')?.classList.add('gone'), 500);
   setTimeout(() => fire.trigger(), 16000); // auto-demo the wildfire once
-  // warm the Explore character in the background so it's ready (no visible swap) on entry
-  const warm = () => explore.preload();
-  if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 4000 }); else setTimeout(warm, 2500);
+  // warm Explore in the background a beat after load: download + parse the character AND
+  // pre-compile shaders for the perspective camera, so entering Explore doesn't stall the
+  // main thread on click (the ~260ms INP hitch happens off the interaction instead).
+  const warm = () => {
+    explore.preload();
+    if (renderer.compileAsync) renderer.compileAsync(scene, explore.camera).catch(() => {});
+  };
+  setTimeout(warm, 1000);
 }
 
 try { boot(); }
