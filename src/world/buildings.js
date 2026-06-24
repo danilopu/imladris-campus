@@ -3,7 +3,7 @@ import {
   SphereGeometry, TorusGeometry, DoubleSide
 } from 'three';
 import { terrain } from './terrain.js';
-import { place } from '../assets/loader.js';
+import { place, loadModel } from '../assets/loader.js';
 import { MODELS } from '../assets/manifest.js';
 
 const rand = Math.random;
@@ -168,8 +168,10 @@ export function buildBuildings() {
     hub.add(blades); g.add(hub); g.position.set(p[0], by, p[1]); group.add(g); turbines.push(blades);
   });
 
-  // solar array
-  { const ox = -50, oz = 4; for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const x = ox + c * 4.4, z = oz + r * 4.4, by = terrain(x, z); const p = box(3.6, 0.28, 2.3, 0x16243b, { metal: 0.4, rough: 0.3, emissive: 0x1d3f72, ei: 0.3 }); p.position.set(x, by + 1.3, z); p.rotation.x = -0.5; group.add(p); glow.push(p.material); } }
+  // solar array — procedural panels, swapped for the CC0 Space Base solar model on load
+  const solarSpots = [];
+  { const ox = -50, oz = 4; for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const x = ox + c * 4.4, z = oz + r * 4.4, by = terrain(x, z); const p = box(3.6, 0.28, 2.3, 0x16243b, { metal: 0.4, rough: 0.3, emissive: 0x1d3f72, ei: 0.3 }); p.position.set(x, by + 1.3, z); p.rotation.x = -0.5; group.add(p); glow.push(p.material); solarSpots.push({ p, x, y: by + 0.9, z }); } }
+  { const SM = MODELS.space_solar; if (SM && SM.url) loadModel(SM.url).then(scene => { solarSpots.forEach(s => { group.remove(s.p); const c = scene.clone(); c.scale.setScalar(SM.scale); c.position.set(s.x, s.y, s.z); c.traverse(o => { if (o.isMesh) o.castShadow = true; }); group.add(c); }); }).catch(() => { /* keep procedural panels */ }); }
 
   // reservoir (pumped-hydro storage) — water level follows the sun: pumped uphill at
   // midday surplus, released through the turbine at dusk (paper §10).
@@ -202,6 +204,8 @@ export function buildBuildings() {
   hero('water_tower', -46, 22, waterTowerFab);
   hero('dome_hall', -60, 8, domeHallFab);
   hero('memory_vault', vaultPos.x, vaultPos.z, vaultFab);
+  // drone landing pad (CC0 KayKit Space Base) near the eastern drone bay
+  hero('space_pad', 46, -4, () => { const g = new Group(); const base = new Mesh(new CylinderGeometry(3, 3, 0.3, 12), new MeshStandardMaterial({ color: 0x3a4348, roughness: 0.6, metalness: 0.3 })); base.position.y = 0.15; g.add(base); return g; });
 
   // sensor posts — visible nervous-system endpoints that pulse
   function sensorPost(x, z, col) {

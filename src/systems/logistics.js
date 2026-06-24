@@ -2,6 +2,8 @@ import {
   Group, Mesh, MeshStandardMaterial, BoxGeometry, CylinderGeometry, SphereGeometry, Vector3
 } from 'three';
 import { terrain } from '../world/terrain.js';
+import { loadModel } from '../assets/loader.js';
+import { MODELS } from '../assets/manifest.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 function dampAngle(cur, target, lambda, dt) {
@@ -52,15 +54,16 @@ export function buildLogistics(director) {
     return { ...f, by, mat, marker: m, ripe: Math.random() * 0.6, active: false };
   });
 
-  // --- rovers (six-wheeled field robots) ---
+  // --- rovers (CC0 KayKit spacetruck, procedural fallback until it loads) ---
   function makeRover() {
     const g = new Group();
-    const body = new Mesh(new BoxGeometry(1.8, 0.8, 2.8), new MeshStandardMaterial({ color: 0xd9d2c4, roughness: 0.6, metalness: 0.1, flatShading: true })); body.position.y = 0.85; body.castShadow = true; g.add(body);
-    const bed = new Mesh(new BoxGeometry(1.6, 0.3, 1.3), new MeshStandardMaterial({ color: 0x6f6a5e, roughness: 0.9 })); bed.position.set(0, 1.3, -0.7); g.add(bed);
-    const lite = new Mesh(new BoxGeometry(1.4, 0.16, 0.1), new MeshStandardMaterial({ color: 0x7ad6a8, emissive: 0x7ad6a8, emissiveIntensity: 1.0 })); lite.position.set(0, 0.95, 1.42); g.add(lite); glow.push(lite.material);
-    [[-0.95, 1], [0.95, 1], [-0.95, 0], [0.95, 0], [-0.95, -1], [0.95, -1]].forEach(p => { const w = new Mesh(new CylinderGeometry(0.42, 0.42, 0.3, 8), new MeshStandardMaterial({ color: 0x2a2f33, roughness: 0.9 })); w.rotation.z = Math.PI / 2; w.position.set(p[0], 0.42, p[1] * 1.0); g.add(w); });
-    const crate = new Mesh(new BoxGeometry(1.2, 1.0, 1.0), new MeshStandardMaterial({ color: 0xd8b25a, roughness: 0.85, flatShading: true })); crate.position.set(0, 1.85, -0.7); crate.visible = false; g.add(crate);
-    g.userData.crate = crate;
+    const bodyHolder = new Group(); g.add(bodyHolder); // swapped for the spacetruck model on load
+    const body = new Mesh(new BoxGeometry(1.8, 0.8, 2.8), new MeshStandardMaterial({ color: 0xd9d2c4, roughness: 0.6, metalness: 0.1, flatShading: true })); body.position.y = 0.85; body.castShadow = true; bodyHolder.add(body);
+    const bed = new Mesh(new BoxGeometry(1.6, 0.3, 1.3), new MeshStandardMaterial({ color: 0x6f6a5e, roughness: 0.9 })); bed.position.set(0, 1.3, -0.7); bodyHolder.add(bed);
+    const lite = new Mesh(new BoxGeometry(1.4, 0.16, 0.1), new MeshStandardMaterial({ color: 0x7ad6a8, emissive: 0x7ad6a8, emissiveIntensity: 1.0 })); lite.position.set(0, 0.95, 1.42); bodyHolder.add(lite); glow.push(lite.material);
+    [[-0.95, 1], [0.95, 1], [-0.95, 0], [0.95, 0], [-0.95, -1], [0.95, -1]].forEach(p => { const w = new Mesh(new CylinderGeometry(0.42, 0.42, 0.3, 8), new MeshStandardMaterial({ color: 0x2a2f33, roughness: 0.9 })); w.rotation.z = Math.PI / 2; w.position.set(p[0], 0.42, p[1] * 1.0); bodyHolder.add(w); });
+    const crate = new Mesh(new BoxGeometry(1.2, 1.0, 1.0), new MeshStandardMaterial({ color: 0xd8b25a, roughness: 0.85, flatShading: true })); crate.position.set(0, 1.6, -0.5); crate.visible = false; g.add(crate);
+    g.userData = { crate, bodyHolder };
     return g;
   }
   const rovers = [];
@@ -68,6 +71,11 @@ export function buildLogistics(director) {
     const g = makeRover(); g.position.copy(depot); group.add(g);
     rovers.push({ g, state: 'idle', job: null, heading: 0, wait: 0, target: depot.clone() });
   }
+  // swap the procedural body for the spacetruck model (cloned per rover) once it loads
+  const RM = MODELS.space_rover;
+  if (RM && RM.url) loadModel(RM.url).then(scene => {
+    rovers.forEach(r => { const c = scene.clone(); c.scale.setScalar(RM.scale); c.traverse(o => { if (o.isMesh) o.castShadow = true; }); r.g.userData.bodyHolder.clear(); r.g.userData.bodyHolder.add(c); });
+  }).catch(() => { /* keep procedural rover */ });
 
   // move a rover toward an xz target; returns true on arrival
   function driveTo(r, tx, tz, dt) {
