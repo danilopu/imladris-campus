@@ -4,7 +4,11 @@ import {
   CanvasTexture
 } from 'three';
 import { terrain, riverX, tribDist } from './terrain.js';
+import { clearings } from './buildings.js';
 import { COUNTS } from '../config.js';
+
+// true if (x,z) sits on a developed building plot — keep trees off it
+const inClearing = (x, z) => clearings.some(c => (x - c.x) ** 2 + (z - c.z) ** 2 < c.r * c.r);
 
 const dummy = new Object3D();
 let s = 99; const rand = () => { s = (s * 1664525 + 1013904223) & 0x7fffffff; return s / 0x7fffffff; };
@@ -23,7 +27,7 @@ export function buildVegetation() {
   for (let i = 0; i < COUNTS.deciduous; i++) {
     let x, z, y, d, t = 0;
     do { x = (rand() * 2 - 1) * 84; z = (rand() * 2 - 1) * 84; y = terrain(x, z); d = Math.abs(x - riverX(z)); t++; }
-    while ((y < 4 || y > 16 || d < 6 || tribDist(x, z) < 5) && t < 10);
+    while ((y < 4 || y > 16 || d < 6 || tribDist(x, z) < 7 || inClearing(x, z)) && t < 10);
     if (t >= 10) continue; dec.push({ x, z, y, sc: 0.8 + rand() * 0.9 });
   }
   addTrees(group, dec, 0x6b4a30, 0x4f9a4e, 2.5, true);
@@ -32,7 +36,7 @@ export function buildVegetation() {
   const con = [];
   for (let i = 0; i < COUNTS.conifers; i++) {
     let x, z, y, d, t = 0;
-    do { x = (rand() * 2 - 1) * 84; z = (rand() * 2 - 1) * 84; y = terrain(x, z); d = Math.abs(x - riverX(z)); t++; } while ((y < 4 || d < 6 || tribDist(x, z) < 5) && t < 10);
+    do { x = (rand() * 2 - 1) * 84; z = (rand() * 2 - 1) * 84; y = terrain(x, z); d = Math.abs(x - riverX(z)); t++; } while ((y < 4 || d < 6 || tribDist(x, z) < 7 || inClearing(x, z)) && t < 10);
     if (t >= 10) continue; con.push({ x, z, y, sc: 0.8 + rand() * 0.9 });
   }
   addConifers(group, con);

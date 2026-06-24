@@ -16,8 +16,8 @@ const defs = {
   greenhouse:    { file: 'greenhouse.glb',     enabled: false, scale: 1, rotationY: 0 },
   dome_hall:     { file: 'dome_hall.glb',      enabled: false, scale: 1, rotationY: 0 },
   // research-ridge labs → CC0 KayKit Space Base modules (modern future-tech look)
-  glass_tower:   { file: 'kaykit-space/basemodule_A.gltf', enabled: true, scale: 2.4, rotationY: 0 },
-  ring_lab:      { file: 'kaykit-space/basemodule_C.gltf', enabled: true, scale: 2.4, rotationY: 0 },
+  glass_tower:   { file: 'kaykit-space/basemodule_A.gltf', enabled: true, scale: 4.6, rotationY: 0 },
+  ring_lab:      { file: 'kaykit-space/basemodule_C.gltf', enabled: true, scale: 4.6, rotationY: 0 },
   water_tower:   { file: 'water_tower.glb',    enabled: false, scale: 1, rotationY: 0 },
   vertical_farm: { file: 'vertical_farm.glb',  enabled: false, scale: 1, rotationY: 0 },
   memory_vault:  { file: 'memory_vault.glb',   enabled: false, scale: 1, rotationY: 0 },

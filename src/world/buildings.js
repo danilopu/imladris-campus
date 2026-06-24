@@ -20,6 +20,13 @@ export const greenPos = { x: 8, z: -26 };   // Greenworks
 export const resPos = { x: -8, z: 60 };     // reservoir / storage
 export const vaultPos = { x: -20, z: 54 };  // Memory — data & seed vault
 
+// developed plots that vegetation should keep clear, so buildings aren't buried in forest
+export const clearings = [
+  { x: 22, z: 50, r: 18 }, { x: 11, z: 44, r: 9 }, { x: 38, z: 44, r: 9 }, { x: 36, z: 58, r: 9 },
+  { x: 8, z: -26, r: 15 }, { x: 17, z: -23, r: 8 }, { x: -22, z: -44, r: 18 },
+  { x: -50, z: 6, r: 14 }, { x: -20, z: 54, r: 9 }, { x: 46, z: -4, r: 9 }, { x: -46, z: 22, r: 8 }
+];
+
 export function buildBuildings() {
   const group = new Group();
   const glow = [];          // emissive materials that brighten at night

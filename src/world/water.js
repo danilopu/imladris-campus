@@ -50,11 +50,16 @@ export function buildWater(riverCurves, pondC) {
   const sheet = new Mesh(new PlaneGeometry(2.4, 4.6), new MeshStandardMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.5, roughness: 0.1, side: DoubleSide, emissive: 0x2a6a82, emissiveIntensity: 0.3 }));
   sheet.position.set(wfC.x, wfC.y - 1.3, wfC.z); group.add(sheet);
 
-  // overflow: the united river spills off the southern rim and falls into the clouds
-  const ovC = new Vector3(riverX(-84), terrain(riverX(-84), -84) + 0.4, -86);
-  const ovN = 80, ovPos = new Float32Array(ovN * 3), ovPart = [];
+  // overflow: the united river spills off the southern rim as a full waterfall into the clouds
+  const ovC = new Vector3(riverX(-84), terrain(riverX(-84), -84) + 0.4, -87);
+  // a falling water curtain (sheet) so it reads as a real cascade, not a few droplets
+  const curtain = new Mesh(new PlaneGeometry(15, 40, 1, 6), new MeshStandardMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.55, roughness: 0.1, side: DoubleSide, emissive: 0x2a6a82, emissiveIntensity: 0.3 }));
+  curtain.position.set(ovC.x, ovC.y - 19, ovC.z - 1.5); curtain.rotation.x = -0.12; group.add(curtain);
+  const lip = new Mesh(new PlaneGeometry(15, 3), new MeshStandardMaterial({ color: 0xd6f4ff, transparent: true, opacity: 0.7, roughness: 0.1, side: DoubleSide, emissive: 0x4a8aa2, emissiveIntensity: 0.4 }));
+  lip.position.set(ovC.x, ovC.y + 0.3, ovC.z + 0.8); lip.rotation.x = -Math.PI / 2.3; group.add(lip);
+  const ovN = 150, ovPos = new Float32Array(ovN * 3), ovPart = [];
   const ovGeo = new BufferGeometry(); ovGeo.setAttribute('position', new BufferAttribute(ovPos, 3));
-  group.add(new Points(ovGeo, new PointsMaterial({ size: 5, sizeAttenuation: false, color: 0xd6f4ff, transparent: true, opacity: 0.8, map: TEX, blending: AdditiveBlending, depthWrite: false })));
+  group.add(new Points(ovGeo, new PointsMaterial({ size: 5.5, sizeAttenuation: false, color: 0xeafaff, transparent: true, opacity: 0.85, map: TEX, blending: AdditiveBlending, depthWrite: false })));
 
   function update(dt, t) {
     let g = 0;
@@ -68,7 +73,7 @@ export function buildWater(riverCurves, pondC) {
     wfGeo.attributes.position.needsUpdate = true;
 
     // overflow off the southern rim, falling far into the clouds
-    while (ovPart.length < ovN) ovPart.push({ x: ovC.x + (rand() - 0.5) * 12, y: ovC.y - rand() * 3, z: ovC.z - rand() * 2, vy: -(2 + rand() * 4), vz: -(1.5 + rand() * 2.5) });
+    while (ovPart.length < ovN) ovPart.push({ x: ovC.x + (rand() - 0.5) * 15, y: ovC.y - rand() * 3, z: ovC.z - rand() * 2, vy: -(2 + rand() * 4), vz: -(1.5 + rand() * 2.5) });
     let on = 0;
     for (let i = ovPart.length - 1; i >= 0; i--) { const p = ovPart[i]; p.y += p.vy * dt; p.vy -= dt * 5; p.z += p.vz * dt; if (p.y < ovC.y - 75) { ovPart.splice(i, 1); continue; } ovPos[on * 3] = p.x; ovPos[on * 3 + 1] = p.y; ovPos[on * 3 + 2] = p.z; on++; }
     for (let j = on; j < ovN; j++) { ovPos[j * 3] = 99999; ovPos[j * 3 + 1] = 99999; ovPos[j * 3 + 2] = 99999; }
