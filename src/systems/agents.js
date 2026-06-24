@@ -37,9 +37,9 @@ export function buildAgents() {
   const deerPaths = [[[44, 8], [50, 16], [42, 22], [36, 14]], [[-12, 32], [-20, 40], [-8, 44], [0, 36]]];
   for (let i = 0; i < 4; i++) { const g = makeDeer(); const path = deerPaths[i % deerPaths.length]; deer.push({ g, path, seg: 0, t: rand(), sp: 0.04 + rand() * 0.05, graze: rand() * 6.28 }); group.add(g); }
 
-  // birds
+  // birds — more of them, in loose flocks circling the island (refuge-in-the-clouds feel)
   const birds = [];
-  for (let i = 0; i < 11; i++) { const g = makeBird(); g.userData = { r: 34 + rand() * 26, ph: rand() * 6.28, sp: 0.1 + rand() * 0.08, h: 42 + rand() * 14, wob: rand() * 6.28 }; group.add(g); birds.push(g); }
+  for (let i = 0; i < 22; i++) { const g = makeBird(); g.userData = { r: 30 + rand() * 34, ph: rand() * 6.28, sp: 0.09 + rand() * 0.09, h: 40 + rand() * 22, wob: rand() * 6.28 }; group.add(g); birds.push(g); }
 
   let reconTimer = 0;
 

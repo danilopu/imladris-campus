@@ -60,15 +60,16 @@ export function buildFauna(pondC) {
   const bfMat = new PointsMaterial({ size: 4.5, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.9, map: TEX, depthWrite: false });
   group.add(new Points(bfGeo, bfMat));
 
-  // -- drifting clouds -- low-poly puffs sliding across the sky
+  // -- drifting clouds -- low-poly puffs at several heights, wrapping the island so orbit
+  // mode feels like a refuge cradled in the clouds
   const clouds = [];
-  for (let i = 0; i < 6; i++) {
-    const g = new Group(), n = 3 + Math.floor(rand() * 3);
+  for (let i = 0; i < 18; i++) {
+    const g = new Group(), n = 3 + Math.floor(rand() * 4);
     for (let k = 0; k < n; k++) {
-      const puff = new Mesh(new IcosahedronGeometry(5 + rand() * 4, 0), new MeshStandardMaterial({ color: 0xeef2f8, roughness: 1, flatShading: true, transparent: true, opacity: 0.8 }));
-      puff.position.set((rand() - 0.5) * 12, (rand() - 0.5) * 2.5, (rand() - 0.5) * 9); puff.scale.y = 0.5; g.add(puff);
+      const puff = new Mesh(new IcosahedronGeometry(5 + rand() * 5, 0), new MeshStandardMaterial({ color: 0xeef2f8, roughness: 1, flatShading: true, transparent: true, opacity: 0.78 }));
+      puff.position.set((rand() - 0.5) * 14, (rand() - 0.5) * 3, (rand() - 0.5) * 11); puff.scale.y = 0.5; g.add(puff);
     }
-    g.position.set(-150 + rand() * 300, 72 + rand() * 26, -110 + rand() * 220); g.userData = { sp: 1.6 + rand() * 2.6 }; group.add(g); clouds.push(g);
+    g.position.set(-170 + rand() * 340, 56 + rand() * 56, -150 + rand() * 300); g.userData = { sp: 1.2 + rand() * 2.8 }; group.add(g); clouds.push(g);
   }
 
   // -- sheep -- woolly grazers wandering the eastern pasture
@@ -161,7 +162,7 @@ export function buildFauna(pondC) {
     bfGeo.attributes.position.needsUpdate = true;
 
     // clouds
-    clouds.forEach(c => { c.position.x += c.userData.sp * dt; if (c.position.x > 160) c.position.x = -160; });
+    clouds.forEach(c => { c.position.x += c.userData.sp * dt; if (c.position.x > 185) c.position.x = -185; });
 
     // sheep
     sheep.forEach(s => {

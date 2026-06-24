@@ -22,6 +22,7 @@ import { buildFauna } from './systems/fauna.js';
 import { createDirector } from './systems/director.js';
 import { buildLogistics } from './systems/logistics.js';
 import { buildDispatcher } from './systems/dispatcher.js';
+import { buildMycelium } from './systems/mycelium.js';
 import { buildAnnotations } from './systems/annotations.js';
 import { buildFire } from './systems/fire.js';
 import { buildEvents } from './systems/events.js';
@@ -78,13 +79,18 @@ function boot() {
   scene.add(logistics.group); loop.add(logistics);
 
   const ground = (x, z) => terrain(x, z);
+  const brainPos = new Vector3(23, ground(23, -23) + 4, -23);
   const network = buildNetwork({
-    brain: new Vector3(23, ground(23, -23) + 4, -23),
+    brain: brainPos,
     sensors: [[-56, -16], [-40, -30], [10, -38], [-30, 30], [40, -2]].map(([x, z]) => new Vector3(x, ground(x, z) + 2.5, z)),
     sources: [new Vector3(-50, ground(-50, 4) + 3, 4), new Vector3(20, ground(20, 68) + 16, 68)],
     reservoir: new Vector3(-8, ground(-8, 60) + 2, 60)
   });
   scene.add(network.group); loop.add(network);
+
+  // mycelial network: bioluminescent web through the forest floor, sensors blink at night
+  const mycelium = buildMycelium(brainPos);
+  scene.add(mycelium.group); loop.add(mycelium);
 
   // Dispatcher: every job posted to the Director → a sense-pulse to the brain + its
   // muscle effect. This is what makes the whole campus read as one master loop.
@@ -103,7 +109,7 @@ function boot() {
   const glow = [...buildings.glow, ...farms.glow, ...transport.glow, ...logistics.glow];
   const daynight = createDayNight({
     lights, skyUniforms: sky.uniforms, scene, glow,
-    onPhase: (star) => { fauna.setNight(star); buildings.setDayPhase(1 - star); } // 1-star = day fraction
+    onPhase: (star) => { fauna.setNight(star); buildings.setDayPhase(1 - star); mycelium.setNight(star); } // 1-star = day fraction
   });
   loop.add(daynight);
 
@@ -150,14 +156,9 @@ function boot() {
 
   setTimeout(() => document.getElementById('loader')?.classList.add('gone'), 500);
   setTimeout(() => fire.trigger(), 16000); // auto-demo the wildfire once
-  // warm Explore in the background a beat after load: download + parse the character AND
-  // pre-compile shaders for the perspective camera, so entering Explore doesn't stall the
-  // main thread on click (the ~260ms INP hitch happens off the interaction instead).
-  const warm = () => {
-    explore.preload();
-    if (renderer.compileAsync) renderer.compileAsync(scene, explore.camera).catch(() => {});
-  };
-  setTimeout(warm, 1000);
+  // pre-compile shaders for the perspective camera a beat after load, so entering Explore
+  // doesn't stall the main thread on first render (the avatar itself is procedural now).
+  setTimeout(() => { if (renderer.compileAsync) renderer.compileAsync(scene, explore.camera).catch(() => {}); }, 1000);
 }
 
 try { boot(); }

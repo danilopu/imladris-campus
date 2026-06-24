@@ -1,58 +1,85 @@
 import {
   PerspectiveCamera, Group, Mesh, MeshStandardMaterial,
-  CylinderGeometry, SphereGeometry, BoxGeometry, Vector3, AnimationMixer, MathUtils
+  CylinderGeometry, SphereGeometry, BoxGeometry, IcosahedronGeometry, Vector3, MathUtils
 } from 'three';
 import { terrain } from '../world/terrain.js';
 import { WORLD } from '../config.js';
-import { loadGltf } from '../assets/loader.js';
 
 const HALF = WORLD.half;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dampAngle = (cur, target, lambda, dt) => { let d = target - cur; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return cur + d * (1 - Math.exp(-lambda * dt)); };
 
-const CHAR_URL = 'models/kaykit/Rogue_Hooded.glb'; // CC0 KayKit Adventurers
-const CHAR_SCALE = 1.0;
+// Stylized low-poly scientist: black tee, jeans, white Air-Force sneakers, messy hair,
+// glasses, backpack. Built procedurally (no model download → instant, no INP hitch), with
+// hip/shoulder pivots so the walk cycle is a smooth procedural limb-swing.
+function makeScientist() {
+  const root = new Group();
+  const skin = new MeshStandardMaterial({ color: 0xe7b48a, roughness: 0.85 });
+  const tee = new MeshStandardMaterial({ color: 0x1b1b1f, roughness: 0.85, flatShading: true });
+  const jeans = new MeshStandardMaterial({ color: 0x3a536e, roughness: 0.9, flatShading: true });
+  const shoe = new MeshStandardMaterial({ color: 0xf3f3f0, roughness: 0.6 });
+  const hair = new MeshStandardMaterial({ color: 0x241f1b, roughness: 1, flatShading: true });
+  const pack = new MeshStandardMaterial({ color: 0x2b6f6a, roughness: 0.8, flatShading: true });
+  const dark = new MeshStandardMaterial({ color: 0x14161b, roughness: 0.4, metalness: 0.3 });
 
-// Third-person "Explore" mode: walk a stylized CC0 character around the campus at human
-// scale (1 unit ≈ 1 m). Owns its own perspective camera + avatar. Movement is velocity-
-// smoothed (eases in/out), collides with buildings, and crossfades idle/walk/run.
-//  Desktop: WASD / arrows to move, Shift to jog, drag to orbit the camera, wheel to zoom.
-//  resolve(pos): optional collision resolver (pushes the avatar out of buildings).
+  const torso = new Mesh(new CylinderGeometry(0.27, 0.24, 0.78, 8), tee); torso.position.y = 1.28; root.add(torso);
+  const hips = new Mesh(new CylinderGeometry(0.24, 0.22, 0.22, 8), jeans); hips.position.y = 0.86; root.add(hips);
+
+  // legs — pivot at the hip so they swing
+  function leg(side) {
+    const g = new Group(); g.position.set(0.11 * side, 0.86, 0);
+    const thigh = new Mesh(new CylinderGeometry(0.11, 0.1, 0.82, 6), jeans); thigh.position.y = -0.41; g.add(thigh);
+    const foot = new Mesh(new BoxGeometry(0.17, 0.13, 0.34), shoe); foot.position.set(0, -0.86, 0.06); g.add(foot);
+    root.add(g); return g;
+  }
+  const legL = leg(-1), legR = leg(1);
+
+  // arms — pivot at the shoulder
+  function arm(side) {
+    const g = new Group(); g.position.set(0.3 * side, 1.62, 0);
+    const upper = new Mesh(new CylinderGeometry(0.08, 0.07, 0.62, 6), tee); upper.position.y = -0.31; g.add(upper);
+    const hand = new Mesh(new SphereGeometry(0.075, 7, 6), skin); hand.position.y = -0.64; g.add(hand);
+    root.add(g); return g;
+  }
+  const armL = arm(-1), armR = arm(1);
+
+  // head + messy hair + glasses
+  const head = new Group(); head.position.y = 1.82; root.add(head);
+  const face = new Mesh(new SphereGeometry(0.2, 12, 10), skin); face.position.y = 0.16; head.add(face);
+  const neck = new Mesh(new CylinderGeometry(0.08, 0.09, 0.14, 6), skin); neck.position.y = 0; head.add(neck);
+  // messy hair: a few jittered chunks
+  for (let i = 0; i < 7; i++) {
+    const h = new Mesh(new IcosahedronGeometry(0.12 + Math.random() * 0.05, 0), hair);
+    const a = Math.random() * 6.28, r = 0.08 + Math.random() * 0.06;
+    h.position.set(Math.cos(a) * r, 0.27 + Math.random() * 0.08, Math.sin(a) * r * 0.8 - 0.02);
+    h.rotation.set(Math.random(), Math.random(), Math.random()); head.add(h);
+  }
+  const glasses = new Mesh(new BoxGeometry(0.32, 0.07, 0.04), dark); glasses.position.set(0, 0.17, 0.18); head.add(glasses);
+  [-1, 1].forEach(s => { const lens = new Mesh(new BoxGeometry(0.12, 0.1, 0.02), dark); lens.position.set(0.09 * s, 0.17, 0.18); head.add(lens); });
+
+  // backpack
+  const bag = new Mesh(new BoxGeometry(0.34, 0.46, 0.2), pack); bag.position.set(0, 1.28, -0.26); root.add(bag);
+  const strap = new Mesh(new BoxGeometry(0.5, 0.5, 0.1), dark); strap.position.set(0, 1.32, 0.24); strap.scale.set(0.3, 1, 1); root.add(strap);
+
+  root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { root, legL, legR, armL, armR, head };
+}
+
+// Third-person "Explore" mode at human scale (1 unit ≈ 1 m). Velocity-smoothed movement,
+// building collision, smooth heading, and a procedural walk cycle.
+//  WASD / arrows to move, Shift to jog, drag to orbit, wheel to zoom.
 export function createExplore({ dom, start = [-22, -44], resolve = null }) {
   const camera = new PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 2000);
 
-  // avatar holder — starts with a simple procedural stand-in, swapped for the character
   const group = new Group();
-  const proc = new Group(); group.add(proc);
-  proc.add(new Mesh(new CylinderGeometry(0.26, 0.22, 0.9, 6), new MeshStandardMaterial({ color: 0x394049, roughness: 0.9 })).translateY(0.45));
-  proc.add(new Mesh(new CylinderGeometry(0.34, 0.3, 1.0, 7), new MeshStandardMaterial({ color: 0x3f7d6b, roughness: 0.8, flatShading: true })).translateY(1.25));
-  proc.add(new Mesh(new SphereGeometry(0.28, 10, 9), new MeshStandardMaterial({ color: 0xe8b98a, roughness: 0.9 })).translateY(1.95));
-  proc.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const avatar = makeScientist(); group.add(avatar.root);
   group.visible = false;
-
-  let mixer = null; const actions = {}; let charLoaded = false;
-  function loadCharacter() {
-    if (charLoaded) return; charLoaded = true;
-    loadGltf(CHAR_URL).then(gltf => {
-      const model = gltf.scene;
-      model.scale.setScalar(CHAR_SCALE);
-      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-      group.remove(proc); group.add(model);
-      mixer = new AnimationMixer(model);
-      const find = (re) => gltf.animations.find(a => re.test(a.name));
-      const clips = { idle: find(/idle/i), walk: find(/walk|jog/i), run: find(/run|sprint/i) };
-      for (const [k, clip] of Object.entries(clips)) {
-        if (!clip) continue; const a = mixer.clipAction(clip); a.enabled = true; a.setEffectiveWeight(k === 'idle' ? 1 : 0); a.play(); actions[k] = a;
-      }
-    }).catch(() => { /* keep procedural stand-in */ });
-  }
 
   const pos = new Vector3(start[0], terrain(start[0], start[1]), start[1]);
   const vel = { x: 0, z: 0 };
-  let active = false, heading = 0, bob = 0;
+  let active = false, heading = 0, walk = 0, swing = 0;
   let camYaw = Math.PI, camPitch = 0.42, camDist = 9;
 
-  // input
   const keys = new Set();
   function key(e, down) {
     if (!active) return;
@@ -79,17 +106,15 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
   }
 
   function enter() {
-    active = true; group.visible = true; loadCharacter();
+    active = true; group.visible = true;
     pos.set(start[0], terrain(start[0], start[1]), start[1]); vel.x = vel.z = 0;
     resize(); placeCamera();
-    // grab keyboard focus so WASD reaches us even when embedded in an iframe/preview
     try { window.focus(); dom.tabIndex = -1; dom.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
   function exit() { active = false; group.visible = false; keys.clear(); dragging = false; }
 
   function update(dt) {
-    if (!active) { if (mixer) mixer.update(dt); return; }
-    // desired direction relative to camera look (horizontal)
+    if (!active) return;
     const fwd = new Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw)), right = new Vector3(-fwd.z, 0, fwd.x);
     let mx = 0, mz = 0;
     if (keys.has('w') || keys.has('ArrowUp')) { mx += fwd.x; mz += fwd.z; }
@@ -98,7 +123,7 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
     if (keys.has('a') || keys.has('ArrowLeft')) { mx -= right.x; mz -= right.z; }
     const len = Math.hypot(mx, mz), maxSp = keys.has('Shift') ? 12 : 6;
     const tx = len > 0 ? (mx / len) * maxSp : 0, tz = len > 0 ? (mz / len) * maxSp : 0;
-    const k = 1 - Math.exp(-9 * dt); // velocity easing (smooth start/stop)
+    const k = 1 - Math.exp(-9 * dt);
     vel.x += (tx - vel.x) * k; vel.z += (tz - vel.z) * k;
 
     pos.x = clamp(pos.x + vel.x * dt, -HALF + 4, HALF - 4);
@@ -108,26 +133,23 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
 
     const sp = Math.hypot(vel.x, vel.z);
     if (sp > 0.4) heading = dampAngle(heading, Math.atan2(vel.x, vel.z), 12, dt);
-    bob += dt * sp * 1.4;
     group.position.set(pos.x, pos.y, pos.z); group.rotation.y = heading;
 
-    // animation crossfade (idle ↔ walk ↔ run) — sandboxed so a bad clip never stops
-    // movement or the camera from updating
-    if (mixer) {
-      try {
-        mixer.update(dt);
-        const target = sp < 0.6 ? 'idle' : (sp > 8.5 ? 'run' : 'walk');
-        const wk = 1 - Math.exp(-12 * dt);
-        for (const [name, a] of Object.entries(actions)) a.setEffectiveWeight(MathUtils.lerp(a.getEffectiveWeight(), name === target ? 1 : 0, wk));
-        if (target === 'run' && !actions.run && actions.walk) actions.walk.setEffectiveWeight(MathUtils.lerp(actions.walk.getEffectiveWeight(), 1, wk));
-      } catch (e) { if (!mixer._warned) { mixer._warned = true; console.error('Explore animation error (isolated):', e); } }
-    }
+    // procedural walk cycle: legs/arms swing with speed, eased toward neutral at rest
+    walk += dt * sp * 1.7;
+    const targetSwing = Math.min(sp / 6, 1);
+    swing = MathUtils.lerp(swing, targetSwing, 1 - Math.exp(-10 * dt));
+    const a = Math.sin(walk) * 0.6 * swing;
+    avatar.legL.rotation.x = a; avatar.legR.rotation.x = -a;
+    avatar.armL.rotation.x = -a * 0.8; avatar.armR.rotation.x = a * 0.8;
+    avatar.root.position.y = Math.abs(Math.sin(walk)) * 0.05 * swing; // gentle body bob
+    avatar.head.rotation.z = Math.sin(walk * 0.5) * 0.03 * swing;
+
     placeCamera();
   }
 
   return {
     camera, group, update, enter, exit,
-    preload: loadCharacter, // warm the 3.6 MB character in the background before first use
     get active() { return active; },
     get position() { return pos.clone(); }
   };
