@@ -29,6 +29,7 @@ import { buildEvents } from './systems/events.js';
 import { buildUI } from './ui/ui.js';
 import { buildHotspots } from './ui/hotspots.js';
 import { buildPaper } from './ui/paper.js';
+import { buildHUD } from './ui/hud.js';
 
 function boot() {
   const { scene, camera, renderer } = createScene();
@@ -122,11 +123,16 @@ function boot() {
   const colliders = buildColliders([buildings.group, farms.group, logistics.group]);
   const explore = createExplore({ dom: renderer.domElement, start: [livePos.x, livePos.z], resolve: makeResolver(colliders) });
   scene.add(explore.group); loop.add(explore);
+
+  // game-like Explore HUD: minimap + system status
+  const hud = buildHUD({ explore, director, daynight, getFps: loop.getFps });
+  loop.add(hud);
+
   postfx.setCamera(camera); // start in diorama (ortho)
   const exploreCtl = {
     toggle() {
-      if (explore.active) { explore.exit(); postfx.setCamera(camera); controls.setAuto(true); hotspots.setEnabled(true); }
-      else { explore.enter(); postfx.setCamera(explore.camera); controls.setAuto(false); hotspots.setEnabled(false); }
+      if (explore.active) { explore.exit(); postfx.setCamera(camera); controls.setAuto(true); hotspots.setEnabled(true); hud.hide(); }
+      else { explore.enter(); postfx.setCamera(explore.camera); controls.setAuto(false); hotspots.setEnabled(false); hud.show(); }
       return explore.active;
     }
   };

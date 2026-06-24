@@ -63,7 +63,7 @@ try {
 
   await step('sector', async () => {
     await page.locator('.schip').first().click({ force: true }); await wait(800);
-    const box = await page.locator('canvas').boundingBox();
+    const box = await page.locator('#app canvas').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, -900); await wait(1800);
     await page.screenshot({ path: OUT + 'sector.png' });

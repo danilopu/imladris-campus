@@ -151,6 +151,7 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
   return {
     camera, group, update, enter, exit,
     get active() { return active; },
-    get position() { return pos.clone(); }
+    get position() { return pos.clone(); },
+    get heading() { return heading; }
   };
 }
