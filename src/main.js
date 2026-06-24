@@ -64,6 +64,7 @@ function boot() {
   const zoneOverlay = buildZoneOverlay();
   scene.add(zoneOverlay.group);
   const planCtl = { toggle() { zoneOverlay.setVisible(!zoneOverlay.visible); return zoneOverlay.visible; } };
+  const myceliumCtl = { on: true, toggle() { this.on = !this.on; mycelium.group.visible = this.on; return this.on; } };
 
   // --- systems ---
   const agents = buildAgents();
@@ -138,7 +139,7 @@ function boot() {
   let fireRef = { trigger() {}, get active() { return false; } };
   const quality = createQuality({ renderer, postfx, key: lights.key });
   const paper = buildPaper();
-  const ui = buildUI({ controls, sectors, fire: { trigger: () => fireRef.trigger() }, night: daynight, systems: hotspots, explore: exploreCtl, quality, plan: planCtl, notes: annotations, paper });
+  const ui = buildUI({ controls, sectors, fire: { trigger: () => fireRef.trigger() }, night: daynight, systems: hotspots, explore: exploreCtl, quality, plan: planCtl, notes: annotations, paper, mycelium: myceliumCtl });
   pushTicker = ui.setTicker; // Director job labels now flow to the ticker
 
   const fire = buildFire(agents, ui.setTicker, network);

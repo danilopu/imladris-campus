@@ -22,9 +22,12 @@ function segDist(px, pz, a, b) {
 export function terrain(x, z) {
   let roll = (Math.sin(x * 0.06) * Math.cos(z * 0.05) + Math.sin(x * 0.09 + 1) * 0.5) * 1.7;
   let hill = gauss(x, z, 22, 54, 25) * 17 + gauss(x, z, -30, 60, 18) * 8;
-  const river = -Math.exp(-((x - riverX(z)) ** 2) / (2 * 49)) * 3.2;
+  // main river widens + deepens below the junction (z≈18) where the mountain river unites
+  const below = smooth(20, -14, z); // 0 above the junction → 1 well downstream
+  const river = -Math.exp(-((x - riverX(z)) ** 2) / (2 * (49 + below * 48))) * (3.2 + below * 1.4);
+  // mountain river: a deeper tributary from the high ridge joining at a sharp angle
   const rb = segDist(x, z, WORLD.tributary.a, WORLD.tributary.b);
-  const trib = -Math.exp(-(rb * rb) / (2 * 30)) * 2.4;
+  const trib = -Math.exp(-(rb * rb) / (2 * 34)) * 3.0;
   let y = roll + hill + river + trib + 2.2;
   const m = Math.max(Math.abs(x), Math.abs(z)) / HALF;
   return lerp(y, 1.0, smooth(0.84, 1.0, m));
@@ -88,7 +91,7 @@ export function buildIsland() {
   { const pts = []; const a = WORLD.tributary.a, b = WORLD.tributary.b; for (let i = 0; i <= 12; i++) { const t = i / 12, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); pts.push(new Vector3(x, terrain(x, z) + 0.6, z)); } riverCurves.push(new CatmullRomCurve3(pts)); }
   { const pts = []; const a = WORLD.stream.a, b = WORLD.stream.b; for (let i = 0; i <= 10; i++) { const t = i / 10, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); pts.push(new Vector3(x, terrain(x, z) + 0.5, z)); } riverCurves.push(new CatmullRomCurve3(pts)); }
 
-  const radii = [4.6, 2.4, 1.6];
+  const radii = [5.2, 3.2, 1.6]; // main river, mountain river, western creek
   riverCurves.forEach((curve, i) => {
     const geo = new TubeGeometry(curve, 110, radii[i], 8, false); geo.scale(1, 0.3, 1);
     const m = new Mesh(geo, waterMat()); m.receiveShadow = true; if (i === 2) m.position.y -= 0.15; group.add(m);

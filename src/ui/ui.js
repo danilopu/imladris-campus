@@ -1,6 +1,6 @@
 // Minimal DOM UI: brand, toolbar (explore, systems, auto-orbit, night, wildfire, reset,
 // quality), sector chips, ticker. The quality chip doubles as a live FPS readout.
-export function buildUI({ controls, sectors, fire, night, systems, explore, quality, plan, notes, paper }) {
+export function buildUI({ controls, sectors, fire, night, systems, explore, quality, plan, notes, paper, mycelium }) {
   const root = document.createElement('div');
   root.innerHTML = `
     <div class="top">
@@ -10,6 +10,7 @@ export function buildUI({ controls, sectors, fire, night, systems, explore, qual
         <button class="btn" id="btnExplore">Explore</button>
         <button class="btn" id="btnNotes">Notes</button>
         <button class="btn" id="btnPlan">Plan grid</button>
+        <button class="btn on" id="btnMycelium">Mycelium</button>
         <button class="btn" id="btnSystems">Systems</button>
         <button class="btn on" id="btnRotate">Auto-orbit</button>
         <button class="btn" id="btnNight">Night</button>
@@ -46,6 +47,10 @@ export function buildUI({ controls, sectors, fire, night, systems, explore, qual
   if (plan) {
     const btnPlan = root.querySelector('#btnPlan');
     btnPlan.onclick = () => { const on = plan.toggle(); btnPlan.classList.toggle('on', on); };
+  }
+  if (mycelium) {
+    const btnMycelium = root.querySelector('#btnMycelium');
+    btnMycelium.onclick = () => { const on = mycelium.toggle(); btnMycelium.classList.toggle('on', on); };
   }
   if (notes) {
     const btnNotes = root.querySelector('#btnNotes');

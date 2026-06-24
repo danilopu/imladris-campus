@@ -23,9 +23,13 @@ export const PALETTE = {
 export const WORLD = {
   half: 88,                 // island half-extent
   topSegments: 120,         // terrain grid resolution
+  // main river: a sinusoidal channel running N→S, overflowing the southern horizon.
   river: { amp: 24, freq: 0.02 },
-  tributary: { a: { x: 58, z: 30 }, b: { x: -2.4, z: -6 } },
-  stream: { a: { x: 6, z: 64 }, b: { x: 34, z: 24 } }
+  // mountain river: a deeper tributary from the high NE ridge, meeting the main river at a
+  // sharp angle around the junction (~z 18) — the two unite and flow on as one.
+  tributary: { a: { x: 38, z: 62 }, b: { x: 8, z: 18 } },
+  // a small western creek (kept clear of the two main rivers)
+  stream: { a: { x: -52, z: 46 }, b: { x: -28, z: 8 } }
 };
 
 export const COUNTS = {
