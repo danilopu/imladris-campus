@@ -24,6 +24,8 @@ Lifted from `reference/campus-world.html` into modules:
 - [x] Tuned `postfx.js`: bloom threshold raised so only emissives glow; added **GTAO** contact-shadow
       pass (ortho-aware; radius in world units via `config.POSTFX.ao`).
 - [x] Soft contact shadows (GTAO, real-time rather than baked); warmer golden key light; subtle vignette.
+- [x] Look-polish pass: cinematic **colour-grade** (contrast/saturation/warm tint, all quality
+      levels) + warmer lighting + **tilt-shift** miniature focus (High quality only).
 - [ ] Texture/bevel pass on remaining procedural geometry — deferred (low ROI; heroes get replaced by GLBs).
 
 ## Foundation (cross-cutting substrate)
