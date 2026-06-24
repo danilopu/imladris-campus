@@ -1,13 +1,15 @@
 import { Clock } from 'three';
 
 // Central loop. Registered systems each expose update(dt, elapsed).
-// A per-frame try/catch keeps one faulty system from killing the whole render.
+// Each system is sandboxed in its own try/catch so one faulty system can never freeze
+// movement or rendering — it's just skipped, and its error is logged once (with stack).
 export function createLoop(render) {
   const clock = new Clock();
   const systems = [];
-  let loggedErr = false;
+  const errored = new Set();
+  let renderErr = false;
 
-  function add(system) { if (system && typeof system.update === 'function') systems.push(system); }
+  function add(system, name) { if (system && typeof system.update === 'function') systems.push({ system, name: name || `#${systems.length}` }); }
 
   // lightweight FPS tracking (rolling ~0.5s) exposed for the harness + an optional meter
   let frames = 0, acc = 0, fps = 0;
@@ -19,12 +21,12 @@ export function createLoop(render) {
     const t = clock.elapsedTime;
     frames++; acc += raw;
     if (acc >= 0.5) { fps = Math.round(frames / acc); frames = 0; acc = 0; if (typeof window !== 'undefined') window.__fps = fps; }
-    try {
-      for (const s of systems) s.update(dt, t);
-      render();
-    } catch (e) {
-      if (!loggedErr) { loggedErr = true; console.error('Loop error:', e); }
+    for (const entry of systems) {
+      try { entry.system.update(dt, t); }
+      catch (e) { if (!errored.has(entry)) { errored.add(entry); console.error(`System "${entry.name}" update error (isolated):`, e); } }
     }
+    try { render(); }
+    catch (e) { if (!renderErr) { renderErr = true; console.error('Render error:', e); } }
   }
 
   return { add, start: () => tick(), getFps: () => fps };

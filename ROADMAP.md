@@ -18,9 +18,9 @@ Lifted from `reference/campus-world.html` into modules:
 
 ## Phase 2 — Visual richness (the diorama look)
 - [x] `.glb` asset pipeline wired hero-first (`assets/manifest.js` + `place()`); fallbacks render
-      until a model loads. **First CC0 model live**: KayKit City Builder `building_A` (CC0) in
-      `public/models/kaykit/`, wired to `glass_tower` (verified loading via the harness). Add more
-      KayKit buildings by dropping files + flipping `enabled`.
+      until a model loads. **CC0 KayKit models live**: City Builder `building_A–D` (research +
+      living-quarter dwellings) and the `Rogue_Hooded` Explore avatar, all verified loading. Add
+      more by dropping files + a manifest line.
 - [x] Tuned `postfx.js`: bloom threshold raised so only emissives glow; added **GTAO** contact-shadow
       pass (ortho-aware; radius in world units via `config.POSTFX.ao`).
 - [x] Soft contact shadows (GTAO, real-time rather than baked); warmer golden key light; subtle vignette.

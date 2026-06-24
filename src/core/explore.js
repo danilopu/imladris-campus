@@ -82,6 +82,8 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
     active = true; group.visible = true; loadCharacter();
     pos.set(start[0], terrain(start[0], start[1]), start[1]); vel.x = vel.z = 0;
     resize(); placeCamera();
+    // grab keyboard focus so WASD reaches us even when embedded in an iframe/preview
+    try { window.focus(); dom.tabIndex = -1; dom.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
   function exit() { active = false; group.visible = false; keys.clear(); dragging = false; }
 
@@ -109,20 +111,23 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
     bob += dt * sp * 1.4;
     group.position.set(pos.x, pos.y, pos.z); group.rotation.y = heading;
 
-    // animation crossfade (idle ↔ walk ↔ run)
+    // animation crossfade (idle ↔ walk ↔ run) — sandboxed so a bad clip never stops
+    // movement or the camera from updating
     if (mixer) {
-      mixer.update(dt);
-      const target = sp < 0.6 ? 'idle' : (sp > 8.5 ? 'run' : 'walk');
-      const wk = 1 - Math.exp(-12 * dt);
-      for (const [name, a] of Object.entries(actions)) a.setEffectiveWeight(MathUtils.lerp(a.getEffectiveWeight(), name === target ? 1 : 0, wk));
-      // fallback if a clip is missing (e.g. no run) → use walk for run
-      if (target === 'run' && !actions.run && actions.walk) actions.walk.setEffectiveWeight(MathUtils.lerp(actions.walk.getEffectiveWeight(), 1, wk));
+      try {
+        mixer.update(dt);
+        const target = sp < 0.6 ? 'idle' : (sp > 8.5 ? 'run' : 'walk');
+        const wk = 1 - Math.exp(-12 * dt);
+        for (const [name, a] of Object.entries(actions)) a.setEffectiveWeight(MathUtils.lerp(a.getEffectiveWeight(), name === target ? 1 : 0, wk));
+        if (target === 'run' && !actions.run && actions.walk) actions.walk.setEffectiveWeight(MathUtils.lerp(actions.walk.getEffectiveWeight(), 1, wk));
+      } catch (e) { if (!mixer._warned) { mixer._warned = true; console.error('Explore animation error (isolated):', e); } }
     }
     placeCamera();
   }
 
   return {
     camera, group, update, enter, exit,
+    preload: loadCharacter, // warm the 3.6 MB character in the background before first use
     get active() { return active; },
     get position() { return pos.clone(); }
   };
