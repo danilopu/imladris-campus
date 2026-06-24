@@ -5,9 +5,9 @@
 export function createQuality({ renderer, postfx, key }) {
   const maxPR = Math.min(window.devicePixelRatio || 1, 2);
   const LEVELS = {
-    High:   { pr: maxPR,             shadow: 2048, gtao: true,  bloom: true },
-    Medium: { pr: Math.min(maxPR, 1.5), shadow: 1024, gtao: false, bloom: true },
-    Low:    { pr: 1,                 shadow: 0,    gtao: false, bloom: false }
+    High:   { pr: maxPR,             shadow: 2048, gtao: true,  bloom: true,  tilt: true },
+    Medium: { pr: Math.min(maxPR, 1.5), shadow: 1024, gtao: false, bloom: true,  tilt: false },
+    Low:    { pr: 1,                 shadow: 0,    gtao: false, bloom: false, tilt: false }
   };
   const order = ['High', 'Medium', 'Low'];
   let cur = 'High';
@@ -25,6 +25,7 @@ export function createQuality({ renderer, postfx, key }) {
       }
     }
     postfx.setGtao(q.gtao);
+    if (postfx.setTiltShift) postfx.setTiltShift(q.tilt);
     if (postfx.bloom) postfx.bloom.enabled = q.bloom;
     window.dispatchEvent(new Event('resize')); // re-apply renderer/composer sizes for the new pixel ratio
   }

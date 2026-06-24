@@ -40,6 +40,12 @@ try {
   await page.goto(APP_URL, { waitUntil: 'load' });
   await page.waitForSelector('#loader.gone', { timeout: 8000 }).catch(() => {});
   await wait(3500);
+  // force High quality (tilt-shift etc. on) for the look screenshots
+  await step('quality-high', async () => {
+    for (let i = 0; i < 3; i++) { const t = await page.textContent('#btnQuality'); if (/^High/.test(t || '')) break; await click('#btnQuality'); await wait(300); }
+    console.log('Quality:', await page.textContent('#btnQuality'));
+  });
+  await wait(600);
   await step('day', async () => { await page.screenshot({ path: OUT + 'day.png' }); });
   const fpsDiorama = await measureFps(page);
 

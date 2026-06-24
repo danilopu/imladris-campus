@@ -4,10 +4,10 @@ import {
 } from 'three';
 
 export function createLights(scene) {
-  const hemiLight = new HemisphereLight(0xd6e6ff, 0x4a5a3a, 0.62);
+  const hemiLight = new HemisphereLight(0xcfe2ff, 0x55503a, 0.62); // cool sky, warm earth bounce
   scene.add(hemiLight);
 
-  const key = new DirectionalLight(0xffe9c4, 1.3); // warm golden-hour key
+  const key = new DirectionalLight(0xffe6bc, 1.3); // warm golden-hour key
   key.position.set(-70, 95, 55);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
@@ -21,7 +21,7 @@ export function createLights(scene) {
   fill.position.set(80, 40, 40);
   scene.add(fill);
 
-  const rim = new DirectionalLight(0xffd9b0, 0.35);
+  const rim = new DirectionalLight(0xffd9a0, 0.35);
   rim.position.set(30, 30, -90);
   scene.add(rim);
 

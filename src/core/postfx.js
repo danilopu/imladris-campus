@@ -22,6 +22,43 @@ class DioramaGTAO extends GTAOPass {
   }
 }
 
+// Tilt-shift — the miniature/diorama signature: a sharp horizontal focus band, blurred
+// toward the top and bottom of the frame. One pass, ~9 taps weighted by focus distance.
+const TiltShiftShader = {
+  uniforms: { tDiffuse: { value: null }, resolution: { value: new Vector2() }, focus: { value: 0.5 }, range: { value: 0.085 }, strength: { value: 3.8 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 resolution; uniform float focus; uniform float range; uniform float strength; varying vec2 vUv;
+    void main(){
+      float d = max(abs(vUv.y - focus) - range, 0.0);
+      vec2 o = (clamp(d / range, 0.0, 1.0) * strength) / resolution;
+      vec3 c = texture2D(tDiffuse, vUv).rgb * 0.36;
+      c += texture2D(tDiffuse, vUv + vec2(o.x, 0.0)).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv - vec2(o.x, 0.0)).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv + vec2(0.0, o.y)).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv - vec2(0.0, o.y)).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv + o * 0.75).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv - o * 0.75).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv + vec2(o.x, -o.y) * 0.75).rgb * 0.08;
+      c += texture2D(tDiffuse, vUv - vec2(o.x, -o.y) * 0.75).rgb * 0.08;
+      gl_FragColor = vec4(c, 1.0);
+    }`
+};
+
+// Cinematic colour grade in display space: contrast S-curve + saturation + warm tint.
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, contrast: { value: 1.08 }, saturation: { value: 1.14 }, tint: { value: [1.035, 1.0, 0.955] } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float contrast; uniform float saturation; uniform vec3 tint; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      c = (c - 0.5) * contrast + 0.5;                       // contrast around mid-grey
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));       // luma
+      c = mix(vec3(l), c, saturation);                      // saturation
+      c *= tint;                                            // warm tint
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+    }`
+};
+
 // Subtle diorama vignette — multiplies the frame edge darker, no colour wash.
 const VignetteShader = {
   uniforms: { tDiffuse: { value: null }, radius: { value: 0.82 }, darkness: { value: 0.38 } },
@@ -66,10 +103,22 @@ export function createPostFX(renderer, scene, camera) {
 
   composer.addPass(new OutputPass()); // tone mapping + sRGB
 
+  const tilt = new ShaderPass(TiltShiftShader); // miniature focus — High quality only
+  tilt.uniforms.resolution.value.set(innerWidth, innerHeight);
+  tilt.enabled = false;
+  composer.addPass(tilt);
+
+  const grade = new ShaderPass(GradeShader); // graded in display space, last
+  grade.uniforms.contrast.value = POSTFX.grade.contrast;
+  grade.uniforms.saturation.value = POSTFX.grade.saturation;
+  grade.uniforms.tint.value = POSTFX.grade.tint;
+  composer.addPass(grade);
+
   function onResize() {
     composer.setSize(innerWidth, innerHeight);
     bloom.setSize(innerWidth, innerHeight);
     gtao.setSize(innerWidth, innerHeight);
+    tilt.uniforms.resolution.value.set(innerWidth, innerHeight);
   }
   addEventListener('resize', onResize);
 
@@ -80,8 +129,9 @@ export function createPostFX(renderer, scene, camera) {
 
   // Swap the render camera (diorama ortho ↔ explore perspective). Bloom/SMAA/vignette
   // stay on in both modes.
-  function setCamera(cam) { renderPass.camera = cam; orthoActive = !!cam.isOrthographicCamera; applyGtao(); }
+  function setCamera(cam) { renderPass.camera = cam; orthoActive = !!cam.isOrthographicCamera; applyGtao(); tilt.enabled = tilt.enabled && orthoActive; }
   function setGtao(on) { gtaoWanted = on; applyGtao(); }
+  function setTiltShift(on) { tilt.enabled = on && orthoActive; } // miniature look, diorama view only
 
-  return { composer, bloom, gtao, setCamera, setGtao, render: () => composer.render() };
+  return { composer, bloom, gtao, setCamera, setGtao, setTiltShift, render: () => composer.render() };
 }

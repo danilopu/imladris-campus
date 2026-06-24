@@ -52,13 +52,16 @@ export const CAMERA = { frustum: 118, radius: 600, theta: Math.PI * 0.25, phi: 0
 export const POSTFX = {
   // threshold sits just above lit (non-emissive) surfaces so only emissive/bloom
   // materials glow; strength/radius give a soft halo without washing the scene.
-  bloom: { strength: 0.6, radius: 0.55, threshold: 0.85 },
-  exposure: 1.08,
+  bloom: { strength: 0.62, radius: 0.6, threshold: 0.84 },
+  exposure: 1.1,
   // GTAO contact shadows. radius is WORLD units (island ~180 across), so props a few
   // units tall seat into the ground. intensity scales the whole AO blend.
-  ao: { radius: 4.5, distanceExponent: 1.0, thickness: 1.0, scale: 1.0, samples: 8, intensity: 0.85 },
+  ao: { radius: 4.5, distanceExponent: 1.0, thickness: 1.0, scale: 1.0, samples: 8, intensity: 0.92 },
   // subtle diorama vignette (multiplicative darkening toward the frame edge).
-  vignette: { radius: 0.82, darkness: 0.38 }
+  vignette: { radius: 0.85, darkness: 0.34 },
+  // cinematic color grade applied in display space: gentle contrast S-curve, a touch of
+  // saturation, and a warm tint — the "professional" finish over the whole frame.
+  grade: { contrast: 1.08, saturation: 1.14, tint: [1.035, 1.0, 0.955] }
 };
 
 export const c = (hex) => new Color(hex);

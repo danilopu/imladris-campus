@@ -23,7 +23,7 @@ export function createDayNight({ lights, skyUniforms, scene, glow = [], onPhase 
   onGlow(m => { m.userData._base = m.emissiveIntensity || 0.5; if (!glow.includes(m)) glow.push(m); });
   glow.forEach(m => { m.userData._base = m.emissiveIntensity || 0.5; });
 
-  const day = { key: 1.3, hemi: 0.62, fill: 0.4, star: 0, glow: 1, top: new Color(0x3c4158), hor: new Color(0x717693) };
+  const day = { key: 1.42, hemi: 0.6, fill: 0.42, star: 0, glow: 1, top: new Color(0x3c4158), hor: new Color(0x717693) };
   const ngt = { key: 0.18, hemi: 0.22, fill: 0.12, star: 1, glow: 2.0, top: new Color(0x070a14), hor: new Color(0x1c2440) };
   const st = { key: 1.3, hemi: 0.62, fill: 0.4, star: 0, glow: 1 };
   let night = false;
