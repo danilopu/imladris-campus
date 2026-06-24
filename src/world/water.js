@@ -3,7 +3,7 @@ import {
   CanvasTexture, AdditiveBlending, CylinderGeometry, BoxGeometry, TorusGeometry,
   MeshStandardMaterial, Vector3, PlaneGeometry, DoubleSide
 } from 'three';
-import { terrain } from './terrain.js';
+import { terrain, riverX } from './terrain.js';
 
 const rand = Math.random;
 
@@ -50,6 +50,12 @@ export function buildWater(riverCurves, pondC) {
   const sheet = new Mesh(new PlaneGeometry(2.4, 4.6), new MeshStandardMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.5, roughness: 0.1, side: DoubleSide, emissive: 0x2a6a82, emissiveIntensity: 0.3 }));
   sheet.position.set(wfC.x, wfC.y - 1.3, wfC.z); group.add(sheet);
 
+  // overflow: the united river spills off the southern rim and falls into the clouds
+  const ovC = new Vector3(riverX(-84), terrain(riverX(-84), -84) + 0.4, -86);
+  const ovN = 80, ovPos = new Float32Array(ovN * 3), ovPart = [];
+  const ovGeo = new BufferGeometry(); ovGeo.setAttribute('position', new BufferAttribute(ovPos, 3));
+  group.add(new Points(ovGeo, new PointsMaterial({ size: 5, sizeAttenuation: false, color: 0xd6f4ff, transparent: true, opacity: 0.8, map: TEX, blending: AdditiveBlending, depthWrite: false })));
+
   function update(dt, t) {
     let g = 0;
     for (const p of glPart) { p.t += dt * p.sp; if (p.t >= 1) p.t -= 1; const pt = p.c.getPoint(p.t); glPos[g * 3] = pt.x; glPos[g * 3 + 1] = pt.y + 0.3 + Math.sin(t * 6 + g) * 0.15; glPos[g * 3 + 2] = pt.z; g++; }
@@ -60,6 +66,13 @@ export function buildWater(riverCurves, pondC) {
     for (let i = wfPart.length - 1; i >= 0; i--) { const p = wfPart[i]; p.y += p.vy * dt; p.vy -= dt * 6; if (p.y <= pondC.y + 0.5) { wfPart.splice(i, 1); continue; } wfPos[wn * 3] = p.x; wfPos[wn * 3 + 1] = p.y; wfPos[wn * 3 + 2] = p.z; wn++; }
     for (let j = wn; j < wfN; j++) { wfPos[j * 3] = 99999; wfPos[j * 3 + 1] = 99999; wfPos[j * 3 + 2] = 99999; }
     wfGeo.attributes.position.needsUpdate = true;
+
+    // overflow off the southern rim, falling far into the clouds
+    while (ovPart.length < ovN) ovPart.push({ x: ovC.x + (rand() - 0.5) * 12, y: ovC.y - rand() * 3, z: ovC.z - rand() * 2, vy: -(2 + rand() * 4), vz: -(1.5 + rand() * 2.5) });
+    let on = 0;
+    for (let i = ovPart.length - 1; i >= 0; i--) { const p = ovPart[i]; p.y += p.vy * dt; p.vy -= dt * 5; p.z += p.vz * dt; if (p.y < ovC.y - 75) { ovPart.splice(i, 1); continue; } ovPos[on * 3] = p.x; ovPos[on * 3 + 1] = p.y; ovPos[on * 3 + 2] = p.z; on++; }
+    for (let j = on; j < ovN; j++) { ovPos[j * 3] = 99999; ovPos[j * 3 + 1] = 99999; ovPos[j * 3 + 2] = 99999; }
+    ovGeo.attributes.position.needsUpdate = true;
   }
 
   return { group, update };

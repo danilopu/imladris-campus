@@ -4,8 +4,13 @@ import {
 } from 'three';
 
 export function createLights(scene) {
-  const hemiLight = new HemisphereLight(0xcfe2ff, 0x55503a, 0.62); // cool sky, warm earth bounce
+  const hemiLight = new HemisphereLight(0xcfe2ff, 0x6e5f47, 0.62); // cool sky, warm earth bounce
   scene.add(hemiLight);
+
+  // soft underglow so the floating island's underside catches light instead of going black
+  const under = new DirectionalLight(0x9a8868, 0.32);
+  under.position.set(12, -90, 28);
+  scene.add(under, under.target);
 
   const key = new DirectionalLight(0xffe6bc, 1.3); // warm golden-hour key
   key.position.set(-70, 95, 55);

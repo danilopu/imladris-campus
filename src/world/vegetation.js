@@ -3,7 +3,7 @@ import {
   MeshStandardMaterial, Points, BufferGeometry, Float32BufferAttribute, PointsMaterial,
   CanvasTexture
 } from 'three';
-import { terrain, riverX } from './terrain.js';
+import { terrain, riverX, tribDist } from './terrain.js';
 import { COUNTS } from '../config.js';
 
 const dummy = new Object3D();
@@ -23,7 +23,7 @@ export function buildVegetation() {
   for (let i = 0; i < COUNTS.deciduous; i++) {
     let x, z, y, d, t = 0;
     do { x = (rand() * 2 - 1) * 84; z = (rand() * 2 - 1) * 84; y = terrain(x, z); d = Math.abs(x - riverX(z)); t++; }
-    while ((y < 4 || y > 16 || d < 6) && t < 10);
+    while ((y < 4 || y > 16 || d < 6 || tribDist(x, z) < 5) && t < 10);
     if (t >= 10) continue; dec.push({ x, z, y, sc: 0.8 + rand() * 0.9 });
   }
   addTrees(group, dec, 0x6b4a30, 0x4f9a4e, 2.5, true);
@@ -32,7 +32,7 @@ export function buildVegetation() {
   const con = [];
   for (let i = 0; i < COUNTS.conifers; i++) {
     let x, z, y, d, t = 0;
-    do { x = (rand() * 2 - 1) * 84; z = (rand() * 2 - 1) * 84; y = terrain(x, z); d = Math.abs(x - riverX(z)); t++; } while ((y < 4 || d < 6) && t < 10);
+    do { x = (rand() * 2 - 1) * 84; z = (rand() * 2 - 1) * 84; y = terrain(x, z); d = Math.abs(x - riverX(z)); t++; } while ((y < 4 || d < 6 || tribDist(x, z) < 5) && t < 10);
     if (t >= 10) continue; con.push({ x, z, y, sc: 0.8 + rand() * 0.9 });
   }
   addConifers(group, con);

@@ -8,10 +8,10 @@ export function createScene() {
   const app = document.getElementById('app');
 
   const scene = new Scene();
-  // The ortho camera sits ~600 units back, so the whole island falls inside a near fog
-  // and washes out. Push fog well past the island so it reads crisp, with only a faint
-  // atmospheric falloff at the far rim. (Diorama look comes from postfx, not haze.)
-  scene.fog = new Fog(new Color(0x6f7693), 720, 1400);
+  // A light cloud-toned fog that only bites past the island's far rim — enough to feel
+  // nestled in the clouds without washing the diorama out. (The cloud collar + drifting
+  // clouds carry most of the "in the sky" feel.)
+  scene.fog = new Fog(new Color(0x97a6c0), 600, 1280);
 
   let aspect = innerWidth / innerHeight;
   const F = CAMERA.frustum;
