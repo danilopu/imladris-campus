@@ -1,7 +1,8 @@
 import {
   Scene, WebGLRenderer, OrthographicCamera, PCFSoftShadowMap,
-  ACESFilmicToneMapping, Fog, Color
+  ACESFilmicToneMapping, Fog, Color, PMREMGenerator
 } from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CAMERA, POSTFX } from '../config.js';
 
 export function createScene() {
@@ -27,6 +28,14 @@ export function createScene() {
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = POSTFX.exposure;
   app.appendChild(renderer.domElement);
+
+  // Soft image-based ambient (no asset file): a neutral room env gives every standard
+  // material gentle reflectance + spec, which kills the flat-plastic look — kept subtle so
+  // the scene stays stylized rather than glossy/photoreal. Materials dial it via
+  // envMapIntensity (set after the world builds in main.js).
+  const pmrem = new PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
 
   function onResize() {
     aspect = innerWidth / innerHeight;

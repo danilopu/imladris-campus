@@ -109,9 +109,10 @@ function boot() {
 
   // day/night drives every emissive (windows, lanterns, grow-lights) + firefly/butterfly fade
   const glow = [...buildings.glow, ...farms.glow, ...transport.glow, ...logistics.glow];
+  let envStar = 0; // 0 = day, 1 = night — used to dim the image-based ambient at night
   const daynight = createDayNight({
     lights, skyUniforms: sky.uniforms, scene, glow,
-    onPhase: (star) => { fauna.setNight(star); buildings.setDayPhase(1 - star); mycelium.setNight(star); } // 1-star = day fraction
+    onPhase: (star) => { fauna.setNight(star); buildings.setDayPhase(1 - star); mycelium.setNight(star); envStar = star; }
   });
   loop.add(daynight);
 
@@ -157,6 +158,16 @@ function boot() {
   // already sense→act: heat → network alert → drone dispatch → contain.)
   const events = buildEvents(director.post, () => fire.active);
   loop.add(events);
+
+  // collect every standard material so we can keep the image-based ambient subtle AND fade
+  // it down at night (a constant env would otherwise keep the island day-lit after dark)
+  const envMats = [];
+  scene.traverse(o => {
+    if (!o.isMesh) return;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(m => { if (m && m.isMeshStandardMaterial && !envMats.includes(m)) envMats.push(m); });
+  });
+  loop.add({ update() { const f = 0.07 + (1 - envStar) * 0.48; for (const m of envMats) m.envMapIntensity = f; } });
 
   loop.add(controls);
   loop.start();
