@@ -1,11 +1,27 @@
 import {
   PlaneGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, Group,
   Float32BufferAttribute, Color, CatmullRomCurve3, TubeGeometry, Vector3,
-  TorusGeometry, IcosahedronGeometry
+  TorusGeometry, Sprite, SpriteMaterial, CanvasTexture
 } from 'three';
 import { WORLD, PALETTE } from '../config.js';
 
 const HALF = WORLD.half;
+
+// soft, voluminous cloud billboard (overlapping radial blobs) — reads natural, unlike
+// faceted low-poly cloud geometry
+export function cloudTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  [[64, 74, 40], [40, 78, 28], [90, 78, 30], [56, 60, 32], [80, 62, 26], [64, 84, 30]].forEach(([bx, by, br]) => {
+    const g = x.createRadialGradient(bx, by, 0, bx, by, br);
+    g.addColorStop(0, 'rgba(255,255,255,0.96)'); g.addColorStop(0.55, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(bx, by, br, 0, 6.28); x.fill();
+  });
+  return new CanvasTexture(c);
+}
+export function makeCloud(tex, scale) {
+  const s = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.92 }));
+  s.scale.set(scale, scale * 0.62, 1); return s;
+}
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
@@ -64,19 +80,46 @@ function buildTop() {
   return mesh;
 }
 
+// shallow soil cap right under the grass (matches the square island footprint)
 function buildBlock() {
-  const g = new CylinderGeometry(HALF * 1.414, HALF * 1.06, 46, 4, 3, false);
-  g.rotateY(Math.PI / 4); g.translate(0, -23, 0);
+  const g = new CylinderGeometry(HALF * 1.414, HALF * 1.3, 18, 4, 2, false);
+  g.rotateY(Math.PI / 4); g.translate(0, -9, 0);
   const p = g.attributes.position, colors = [];
-  // lighter, warmer earth tones (the underside read too black) + per-vertex strata variation
-  const lip = new Color(PALETTE.soilLip), soil = new Color(0x836a4a), rock = new Color(0x74614c), deep = new Color(0x564a3c);
+  const lip = new Color(PALETTE.soilLip), soil = new Color(0x836a4a), rock = new Color(0x6f5c47);
   let s2 = 7; const rnd = () => { s2 = (s2 * 1664525 + 1013904223) & 0x7fffffff; return s2 / 0x7fffffff; };
   for (let i = 0; i < p.count; i++) {
     const y = p.getY(i); const col = new Color();
-    if (y > -3) col.copy(lip);
-    else if (y > -14) col.copy(soil).lerp(rock, (-y - 3) / 11);
-    else col.copy(rock).lerp(deep, clamp((-y - 14) / 30, 0, 1));
-    col.offsetHSL(0, 0, (rnd() - 0.5) * 0.13); // earthy striations
+    if (y > -3) col.copy(lip); else col.copy(soil).lerp(rock, clamp((-y - 3) / 15, 0, 1));
+    col.offsetHSL(0, 0, (rnd() - 0.5) * 0.12);
+    colors.push(col.r, col.g, col.b);
+  }
+  g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  const mesh = new Mesh(g, new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, metalness: 0 }));
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+
+// the rocky keel: an inverted-mountain mass tapering to a point, eroded with radial noise
+// and stratified — the geological underside of a chunk of land torn from the earth
+function buildKeel() {
+  const topY = -16, botY = -98, span = topY - botY;
+  const g = new CylinderGeometry(HALF * 0.82, HALF * 0.08, span, 12, 16, false);
+  g.translate(0, (topY + botY) / 2, 0);
+  const p = g.attributes.position, colors = [];
+  const rockHi = new Color(0x6f5d4a), rockMid = new Color(0x584a39), rockLo = new Color(0x46392c), rockDeep = new Color(0x352b21);
+  let s = 13; const rnd = () => { s = (s * 1664525 + 1013904223) & 0x7fffffff; return s / 0x7fffffff; };
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const ang = Math.atan2(z, x), rad = Math.hypot(x, z), t = clamp((topY - y) / span, 0, 1);
+    const noise = Math.sin(ang * 3 + y * 0.13) * 0.5 + Math.sin(ang * 6 - y * 0.09) * 0.32 + Math.sin(ang * 11 + y * 0.05) * 0.18;
+    const nr = Math.max(0.6, rad + noise * (2.5 + t * 8));
+    p.setX(i, Math.cos(ang) * nr); p.setZ(i, Math.sin(ang) * nr);
+    const col = new Color();
+    if (t < 0.3) col.copy(rockHi).lerp(rockMid, t / 0.3);
+    else if (t < 0.7) col.copy(rockMid).lerp(rockLo, (t - 0.3) / 0.4);
+    else col.copy(rockLo).lerp(rockDeep, (t - 0.7) / 0.3);
+    col.offsetHSL(0, 0, (rnd() - 0.5) * 0.1 + Math.sin(y * 0.4) * 0.05); // strata bands + grain
     colors.push(col.r, col.g, col.b);
   }
   g.setAttribute('color', new Float32BufferAttribute(colors, 3));
@@ -93,27 +136,15 @@ function waterMat() {
 // Returns { group, terrain, riverCurves, pondC } for downstream systems.
 export function buildIsland() {
   const group = new Group();
-  group.add(buildTop(), buildBlock());
+  group.add(buildTop(), buildBlock(), buildKeel());
 
-  // dangling roots + earth chunks under the rim — so the island reads as a piece plucked
-  // from the ground and set in the sky, not a flat black slab
-  const rootMat = new MeshStandardMaterial({ color: 0x4a3d2d, roughness: 1, flatShading: true });
-  const earthMat = new MeshStandardMaterial({ color: 0x5e4d39, roughness: 1, flatShading: true });
-  for (let i = 0; i < 24; i++) {
-    const a = (i / 24) * 6.28 + (Math.random() - 0.5) * 0.3, r = 70 + Math.random() * 22, len = 9 + Math.random() * 22;
-    const root = new Mesh(new CylinderGeometry(1.6 + Math.random() * 1.6, 0.2, len, 5), Math.random() < 0.5 ? rootMat : earthMat);
-    root.position.set(Math.cos(a) * r, -34 - len * 0.5, Math.sin(a) * r);
-    root.rotation.set((Math.random() - 0.5) * 0.3, Math.random() * 6.28, (Math.random() - 0.5) * 0.3);
-    root.castShadow = true; group.add(root);
-  }
-
-  // a soft collar of clouds wrapping the island base — nestled in the sky
-  const cloudMat = new MeshStandardMaterial({ color: 0xeef2f8, roughness: 1, flatShading: true, transparent: true, opacity: 0.55 });
-  for (let i = 0; i < 44; i++) {
-    const a = (i / 44) * 6.28 + (Math.random() - 0.5) * 0.35, r = HALF * (1.0 + Math.random() * 0.55);
-    const puff = new Mesh(new IcosahedronGeometry(7 + Math.random() * 8, 0), cloudMat);
-    puff.position.set(Math.cos(a) * r, -4 + Math.random() * 9, Math.sin(a) * r); puff.scale.set(1 + Math.random(), 0.45, 1 + Math.random());
-    group.add(puff);
+  // a soft collar of cloud billboards wrapping the island base — nestled in the sky
+  const cTex = cloudTexture();
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * 6.28 + (Math.random() - 0.5) * 0.4, r = HALF * (0.92 + Math.random() * 0.5);
+    const cl = makeCloud(cTex, 34 + Math.random() * 28);
+    cl.position.set(Math.cos(a) * r, -7 + Math.random() * 13, Math.sin(a) * r);
+    group.add(cl);
   }
 
   const riverCurves = [];

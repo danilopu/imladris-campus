@@ -3,7 +3,7 @@ import {
   CanvasTexture, SphereGeometry, BoxGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry,
   MeshStandardMaterial
 } from 'three';
-import { terrain, riverX } from '../world/terrain.js';
+import { terrain, riverX, cloudTexture, makeCloud } from '../world/terrain.js';
 
 const rand = Math.random;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -60,16 +60,14 @@ export function buildFauna(pondC) {
   const bfMat = new PointsMaterial({ size: 4.5, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.9, map: TEX, depthWrite: false });
   group.add(new Points(bfGeo, bfMat));
 
-  // -- drifting clouds -- low-poly puffs at several heights, wrapping the island so orbit
-  // mode feels like a refuge cradled in the clouds
+  // -- drifting clouds -- soft cloud billboards at several heights, wrapping the island so
+  // orbit mode feels like a refuge cradled in the clouds
+  const cTex = cloudTexture();
   const clouds = [];
-  for (let i = 0; i < 18; i++) {
-    const g = new Group(), n = 3 + Math.floor(rand() * 4);
-    for (let k = 0; k < n; k++) {
-      const puff = new Mesh(new IcosahedronGeometry(5 + rand() * 5, 0), new MeshStandardMaterial({ color: 0xeef2f8, roughness: 1, flatShading: true, transparent: true, opacity: 0.78 }));
-      puff.position.set((rand() - 0.5) * 14, (rand() - 0.5) * 3, (rand() - 0.5) * 11); puff.scale.y = 0.5; g.add(puff);
-    }
-    g.position.set(-170 + rand() * 340, 56 + rand() * 56, -150 + rand() * 300); g.userData = { sp: 1.2 + rand() * 2.8 }; group.add(g); clouds.push(g);
+  for (let i = 0; i < 22; i++) {
+    const cl = makeCloud(cTex, 40 + rand() * 44);
+    cl.position.set(-185 + rand() * 370, 54 + rand() * 60, -160 + rand() * 320);
+    cl.userData = { sp: 1.1 + rand() * 2.8 }; group.add(cl); clouds.push(cl);
   }
 
   // -- sheep -- woolly grazers wandering the eastern pasture
