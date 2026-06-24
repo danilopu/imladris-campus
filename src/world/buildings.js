@@ -192,7 +192,7 @@ export function buildBuildings() {
   }
 
   // densify dwellings — real CC0 KayKit buildings (cycled for variety), pavilion fallback
-  const resModels = ['glass_tower', 'res_b', 'res_c', 'res_d'];
+  const resModels = ['res_a', 'res_b', 'res_c', 'res_d'];
   [[-30, -50], [-36, -42], [-16, -38], [-40, -52], [2, -50]].forEach((p, i) => dwelling(resModels[i % resModels.length], p[0], p[1]));
 
   // varied research facilities (heroes)

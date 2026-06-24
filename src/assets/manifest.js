@@ -15,15 +15,21 @@ const defs = {
   data_center:   { file: 'data_center.glb',   enabled: false, scale: 1, rotationY: 0 },
   greenhouse:    { file: 'greenhouse.glb',     enabled: false, scale: 1, rotationY: 0 },
   dome_hall:     { file: 'dome_hall.glb',      enabled: false, scale: 1, rotationY: 0 },
-  glass_tower:   { file: 'kaykit/building_A.gltf', enabled: true, scale: 2, rotationY: 0 }, // CC0 KayKit City Builder
-  ring_lab:      { file: 'ring_lab.glb',       enabled: false, scale: 1, rotationY: 0 },
+  // research-ridge labs → CC0 KayKit Space Base modules (modern future-tech look)
+  glass_tower:   { file: 'kaykit-space/basemodule_A.gltf', enabled: true, scale: 2.4, rotationY: 0 },
+  ring_lab:      { file: 'kaykit-space/basemodule_C.gltf', enabled: true, scale: 2.4, rotationY: 0 },
   water_tower:   { file: 'water_tower.glb',    enabled: false, scale: 1, rotationY: 0 },
   vertical_farm: { file: 'vertical_farm.glb',  enabled: false, scale: 1, rotationY: 0 },
   memory_vault:  { file: 'memory_vault.glb',   enabled: false, scale: 1, rotationY: 0 },
   // CC0 KayKit City Builder dwellings (living quarter)
+  res_a:         { file: 'kaykit/building_A.gltf', enabled: true, scale: 2, rotationY: 0 },
   res_b:         { file: 'kaykit/building_B.gltf', enabled: true, scale: 2, rotationY: 0 },
   res_c:         { file: 'kaykit/building_C.gltf', enabled: true, scale: 2, rotationY: 0 },
-  res_d:         { file: 'kaykit/building_D.gltf', enabled: true, scale: 2, rotationY: 0 }
+  res_d:         { file: 'kaykit/building_D.gltf', enabled: true, scale: 2, rotationY: 0 },
+  // CC0 KayKit Space Base props
+  space_solar:   { file: 'kaykit-space/solarpanel.gltf', enabled: true, scale: 2, rotationY: 0 },
+  space_pad:     { file: 'kaykit-space/landingpad_large.gltf', enabled: true, scale: 2.2, rotationY: 0 },
+  space_rover:   { file: 'kaykit-space/spacetruck.gltf', enabled: true, scale: 1.5, rotationY: 0 }
 };
 
 export const MODELS = Object.fromEntries(
