@@ -3,3 +3,5 @@ dist
 *.log
 .DS_Store
 tools/shots
+# raw asset-pack downloads (only the curated subset under public/models/ is committed)
+glTF-2026*/

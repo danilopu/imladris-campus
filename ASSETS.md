@@ -33,6 +33,14 @@ group.add(place(M.url, proceduralFallback, { position:[x,y,z], scale:M.scale, ro
 Note: a swapped-in model's emissive parts won't auto-bloom with day/night yet — pass
 `onLoad(model)` to `place()` to register them (or name glowing nodes per the convention below).
 
+## Delivered (CC0 packs in `public/models/`)
+- `village/` — KayKit medieval builder: houses, tower-house, market, dock, farm, windmill,
+  barrel/crate/logs → the riverside hamlet, chicken farm, footbridge (`vil_*` in the manifest).
+- `characters/` — rigged people (Idle/Walk/Run): the Explore avatar + villager NPCs (`char_*`).
+- `nature/` — Quaternius birch trees, flowering bushes, flower clumps (`nat_*`).
+- `kaykit/`, `kaykit-space/` — City Builder dwellings + Space Base modules/props (research ridge).
+Each has a `SOURCE.md`. The wishlist below is what's still procedural and worth modelling next.
+
 ## Wishlist (priority order)
 
 ### Hero architecture (biggest visual payoff)

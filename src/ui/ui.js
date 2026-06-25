@@ -1,12 +1,13 @@
 // Minimal DOM UI: brand, toolbar (explore, systems, auto-orbit, night, wildfire, reset,
 // quality), sector chips, ticker. The quality chip doubles as a live FPS readout.
-export function buildUI({ controls, sectors, fire, night, systems, explore, quality, plan, notes, paper, mycelium }) {
+export function buildUI({ controls, sectors, fire, night, systems, explore, quality, plan, notes, paper, mycelium, tour }) {
   const root = document.createElement('div');
   root.innerHTML = `
     <div class="top">
       <div class="brand"><h1>Project <span>Imladris</span></h1><p>The Living Campus</p></div>
       <div class="tools">
         <button class="btn" id="btnPaper">Paper</button>
+        <button class="btn" id="btnTour">Tour</button>
         <button class="btn" id="btnExplore">Explore</button>
         <button class="btn" id="btnNotes">Notes</button>
         <button class="btn" id="btnPlan">Plan grid</button>
@@ -20,7 +21,7 @@ export function buildUI({ controls, sectors, fire, night, systems, explore, qual
       </div>
     </div>
     <div class="sectorbar" id="sectorbar"></div>
-    <div class="explore-hint" id="exploreHint">WASD / arrows to walk · Shift to jog · drag to look · <b>M</b> to mark a spot · Exit to return</div>
+    <div class="explore-hint" id="exploreHint">WASD / arrows to walk · Shift to jog · drag to look · <b>M</b> to mark a spot · touch: left-side joystick to walk, right side to look · Exit to return</div>
     <div class="ticker"><span class="pulse"></span><span id="tickerText">Initializing…</span></div>`;
   document.body.appendChild(root);
 
@@ -61,6 +62,11 @@ export function buildUI({ controls, sectors, fire, night, systems, explore, qual
     const paint = () => { btnQuality.textContent = `${quality.level} · ${window.__fps || '–'} fps`; };
     btnQuality.onclick = () => { quality.cycle(); paint(); };
     paint(); setInterval(paint, 500); // live FPS readout
+  }
+  if (tour) {
+    const btnTour = root.querySelector('#btnTour');
+    btnTour.onclick = () => tour.toggle();
+    tour.onState(on => { btnTour.classList.toggle('on', on); btnTour.textContent = on ? 'Stop' : 'Tour'; });
   }
   if (explore) {
     const btnExplore = root.querySelector('#btnExplore');

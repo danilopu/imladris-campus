@@ -50,8 +50,10 @@ export function buildWater(riverCurves, pondC) {
   const sheet = new Mesh(new PlaneGeometry(2.4, 4.6), new MeshStandardMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.5, roughness: 0.1, side: DoubleSide, emissive: 0x2a6a82, emissiveIntensity: 0.3 }));
   sheet.position.set(wfC.x, wfC.y - 1.3, wfC.z); group.add(sheet);
 
-  // overflow: the united river spills off the southern rim as a full waterfall into the clouds
-  const ovC = new Vector3(riverX(-84), terrain(riverX(-84), -84) + 0.4, -87);
+  // overflow: the united river spills off the southern rim as a full waterfall into the clouds.
+  // Anchored right at the slab edge (z≈-89) and near the WATER surface (rim taper lifts the
+  // river to the lip), so the cascade reads as pouring over the edge — not from a hidden trench.
+  const ovC = new Vector3(riverX(-89), terrain(riverX(-89), -89) + 1.1, -89);
   // a falling water curtain (sheet) so it reads as a real cascade, not a few droplets
   const curtain = new Mesh(new PlaneGeometry(15, 40, 1, 6), new MeshStandardMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.55, roughness: 0.1, side: DoubleSide, emissive: 0x2a6a82, emissiveIntensity: 0.3 }));
   curtain.position.set(ovC.x, ovC.y - 19, ovC.z - 1.5); curtain.rotation.x = -0.12; group.add(curtain);

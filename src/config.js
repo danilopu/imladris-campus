@@ -43,7 +43,7 @@ export const COUNTS = {
 
 // Sectors drive both the floating labels and the jump-to-sector camera framing.
 export const SECTORS = [
-  { id: 'research', name: 'Research Ridge', col: '#cfe0ff', pos: [26, 52], y: 24 },
+  { id: 'research', name: 'Research Ridge', col: '#cfe0ff', pos: [46, 52], y: 24 },
   { id: 'green',    name: 'Greenworks',     col: '#7ad6a8', pos: [14, -28], y: 16 },
   { id: 'agri',     name: 'Agriculture',    col: '#bfe87a', pos: [-34, -22], y: 12 },
   { id: 'living',   name: 'Living Quarter', col: '#ffce7a', pos: [-24, -46], y: 12 },

@@ -16,7 +16,10 @@ const OUT = fileURLToPath(new URL('./shots/', import.meta.url));
 mkdirSync(OUT, { recursive: true });
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { shell: true, stdio: 'ignore' });
+// Spawn vite directly via this Node binary (no shell) so server.kill() actually terminates
+// it — a shell wrapper orphans the grandchild process on Windows and leaves dist/ locked.
+const VITE_BIN = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url));
+const server = spawn(process.execPath, [VITE_BIN, 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 const errors = [], models = [];
 // sample window.__fps for ~2.5s and return the median (robust to spikes)
 const measureFps = (page) => page.evaluate(() => new Promise(resolve => {
@@ -59,6 +62,14 @@ try {
     await click('#btnSystems'); await wait(400);
     await page.screenshot({ path: OUT + 'systems.png' });
     await click('#btnSystems'); await wait(300);
+  });
+
+  await step('tour', async () => {
+    await click('#btnTour'); await wait(2600); // let it frame the first sector + narrate
+    await page.screenshot({ path: OUT + 'tour.png' });
+    const t = await page.textContent('#btnTour');
+    console.log('Tour button:', t);
+    await click('#btnTour'); await wait(1600); // stop → reset
   });
 
   await step('sector', async () => {

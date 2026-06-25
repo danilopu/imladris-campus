@@ -64,9 +64,10 @@ export function buildFauna(pondC) {
   // orbit mode feels like a refuge cradled in the clouds
   const cTex = cloudTexture();
   const clouds = [];
-  for (let i = 0; i < 22; i++) {
-    const cl = makeCloud(cTex, 40 + rand() * 44);
-    cl.position.set(-185 + rand() * 370, 54 + rand() * 60, -160 + rand() * 320);
+  for (let i = 0; i < 11; i++) {
+    const cl = makeCloud(cTex, 38 + rand() * 40);
+    cl.material.opacity = 0.72;
+    cl.position.set(-185 + rand() * 370, 64 + rand() * 56, -160 + rand() * 320);
     cl.userData = { sp: 1.1 + rand() * 2.8 }; group.add(cl); clouds.push(cl);
   }
 
@@ -110,21 +111,7 @@ export function buildFauna(pondC) {
     g.position.set(x, by, z); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); group.add(g);
   })();
 
-  // -- people -- residents strolling the campus paths
-  const people = [];
-  const paths = [
-    [[-22, -44], [-12, -30], [2, -14], [14, 2], [16, 42]],
-    [[-32, -28], [-20, -22], [-8, -44], [-22, -44]],
-    [[8, -26], [22, -18], [14, 2], [2, -14]]
-  ];
-  for (let i = 0; i < 7; i++) {
-    const g = new Group(), col = [0xd96f4a, 0x4a7fd9, 0xe0c24a, 0x5ab07a, 0xb05ad9][i % 5];
-    const body = new Mesh(new CylinderGeometry(0.3, 0.36, 1.3, 6), new MeshStandardMaterial({ color: col, roughness: 0.9, flatShading: true })); body.position.y = 0.65; body.castShadow = true; g.add(body);
-    const head = new Mesh(new SphereGeometry(0.28, 8, 8), new MeshStandardMaterial({ color: 0xe8b98a, roughness: 0.9 })); head.position.y = 1.5; g.add(head);
-    const path = paths[i % paths.length];
-    people.push({ g, path, seg: Math.floor(rand() * path.length), t: rand(), sp: 0.1 + rand() * 0.1, bob: rand() * 6.28 }); group.add(g);
-  }
-  const pathPt = (path, seg, t) => { const a = path[seg], b = path[(seg + 1) % path.length]; return { x: lerp(a[0], b[0], t), z: lerp(a[1], b[1], t) }; };
+  // (campus residents are now real CC0 character NPCs — see systems/villagers.js)
 
   // day/night crossfade: fireflies emerge at night, butterflies fade with the sun
   let night = 0;
@@ -173,17 +160,6 @@ export function buildFauna(pondC) {
     ducks.forEach(d => {
       d.ph += dt * d.sp; const x = d.cx + Math.cos(d.ph) * d.rad, z = d.cz + Math.sin(d.ph) * d.rad;
       d.g.position.set(x, d.by + Math.sin(now * 0.003 + d.ph) * 0.06, z); d.g.rotation.y = -d.ph;
-    });
-
-    // people
-    people.forEach(pp => {
-      pp.t += dt * pp.sp; if (pp.t >= 1) { pp.t -= 1; pp.seg = (pp.seg + 1) % pp.path.length; }
-      const c = pathPt(pp.path, pp.seg, pp.t), y = terrain(c.x, c.z);
-      pp.g.position.set(c.x, y, c.z); pp.g.position.y += Math.abs(Math.sin(now * 0.008 + pp.bob)) * 0.12;
-      const nx = pathPt(pp.path, pp.seg, Math.min(pp.t + 0.05, 1));
-      const th = Math.atan2(nx.x - c.x, nx.z - c.z); let d = th - pp.g.rotation.y;
-      while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-      pp.g.rotation.y += d * (1 - Math.exp(-6 * dt));
     });
   }
 

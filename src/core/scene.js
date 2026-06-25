@@ -9,10 +9,10 @@ export function createScene() {
   const app = document.getElementById('app');
 
   const scene = new Scene();
-  // A light cloud-toned fog that only bites past the island's far rim — enough to feel
-  // nestled in the clouds without washing the diorama out. (The cloud collar + drifting
-  // clouds carry most of the "in the sky" feel.)
-  scene.fog = new Fog(new Color(0x97a6c0), 600, 1280);
+  // A very light cloud-toned haze that only bites far past the island's rim — the campus
+  // itself reads crisp, with just a hint of atmosphere on the distant sky/clouds. (Pushed
+  // back from the old 600/1280 to de-emphasise the "fogged-in" feel.)
+  scene.fog = new Fog(new Color(0xb3c0d2), 1100, 2900);
 
   let aspect = innerWidth / innerHeight;
   const F = CAMERA.frustum;

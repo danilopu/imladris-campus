@@ -18,9 +18,14 @@ Lifted from `reference/campus-world.html` into modules:
 
 ## Phase 2 — Visual richness (the diorama look)
 - [x] `.glb` asset pipeline wired hero-first (`assets/manifest.js` + `place()`); fallbacks render
-      until a model loads. **CC0 KayKit models live**: City Builder `building_A–D` (research +
-      living-quarter dwellings) and the `Rogue_Hooded` Explore avatar, all verified loading. Add
-      more by dropping files + a manifest line.
+      until a model loads. **CC0 model packs live** (all verified loading 200 via `npm run shoot`):
+      - KayKit Space Base modules → research-ridge labs + solar/landing-pad/rover props.
+      - **KayKit village (medieval)** → riverside hamlet houses on the banks, market, dock,
+        footbridge gate-tower, and the Wildwood chicken farm (`world/buildings.js`, `vil_*`).
+      - **Quaternius nature** → birch groves, flowering bushes, flower clumps scattered as
+        accents over the instanced forest (`world/vegetation.js`, `nat_*`).
+      - **Character pack** → rigged Explore avatar (Worker, Idle/Walk/Run mixer) + villager
+        NPCs (`systems/villagers.js`, `char_*`). Add more by dropping files + a manifest line.
 - [x] Tuned `postfx.js`: bloom threshold raised so only emissives glow; added **GTAO** contact-shadow
       pass (ortho-aware; radius in world units via `config.POSTFX.ao`).
 - [x] Soft contact shadows (GTAO, real-time rather than baked); warmer golden key light; subtle vignette.
@@ -45,7 +50,10 @@ Lifted from `reference/campus-world.html` into modules:
       shadow-map size → GTAO → bloom; auto-defaults by device. Quality chip shows live FPS.
       (Note: real FPS can only be felt on real hardware — the headless harness throttles rAF.)
 - [x] Framerate-independent damping for camera/agents (smoothness, done earlier).
-- [ ] LOD on trees/props (swap to billboards/low-poly at distance) — `assets/lod.js` helper ready.
+- [~] LOD on trees/props — `assets/lod.js` helper exists, but distance-LOD is a near-no-op in the
+      **orthographic** diorama (every prop is ~equidistant from the camera). Lever applied instead:
+      scattered bushes/flowers no longer cast shadows (`world/vegetation.js`), trimming the shadow
+      pass. Distance-LOD would only pay off in Explore (perspective) — revisit if mobile FPS dips.
 - [ ] Cap dynamic shadow casters / consider static shadow-map for the world geometry.
 
 ## Phase 4 — Depth & interaction
@@ -61,7 +69,8 @@ Lifted from `reference/campus-world.html` into modules:
 - [x] In-world annotations → tasks (`systems/annotations.js`): in Explore, press **M** to drop a
       pin where the avatar stands, type a comment; persists to localStorage and **exports a task
       checklist** (markdown to clipboard + JSON download) tagged with zone + exact x/y/z.
-- [ ] A guided "tour" mode that flies sector to sector narrating each system.
+- [x] A guided "tour" mode that flies sector to sector narrating each system (`systems/tour.js`;
+      Tour button, organism-themed ticker per sector, stops on Explore).
 - [ ] Survival/isolation mode (paper §10): storm severs link → dim nonessential systems, LoRa mesh.
 - [ ] More scripted operations; seasonal/weather variation.
 - [ ] Optional: data-drive the layout from a JSON so sectors/buildings are editable without code.
@@ -69,11 +78,15 @@ Lifted from `reference/campus-world.html` into modules:
 ## Phase 5 — Immersion (new)
 - [x] Third-person "Explore" mode (`core/explore.js`): perspective camera, WASD/arrows +
       drag-to-orbit + wheel zoom, terrain-following at human scale (1 unit ≈ 1 m).
-- [x] Stylized CC0 avatar: KayKit "Rogue_Hooded" (rigged), idle/walk/run crossfade, velocity-
-      smoothed movement (eases in/out), and **building collision** (`core/collision.js` circles).
+- [x] Stylized CC0 avatar: rigged character (Worker) with **AnimationMixer** Idle/Walk/Run
+      crossfade, velocity-smoothed movement (eases in/out), and **building collision**
+      (`core/collision.js` circles). Procedural scientist remains as an instant fallback.
 - [x] In-app **research paper reader** (`ui/paper.js`): Paper button → modal renders the concept
       paper (marked + the markdown, both lazy-loaded).
-- [ ] Touch joystick for mobile movement; entry from a hotspot "walk here".
+- [x] Touch joystick for mobile movement (`core/explore.js`): left-half virtual stick (analog
+      speed) to walk, right side to look — pointer-id-tracked so both work at once; touch-only,
+      so desktop is unaffected.
+- [ ] Entry from a hotspot "walk here".
 
 ## Phase 6 — Deployment
 - [x] Vercel-ready: `vercel.json` (framework=vite, dist output, model cache headers) + `DEPLOY.md`.

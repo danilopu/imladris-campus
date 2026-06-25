@@ -20,8 +20,9 @@ new module structure, so porting the rest is mechanical.
 | Buildings & observatory                             | `world/buildings.js`         | ported |
 | Farms: orchard/paddies/aquaponics/vertical farm     | `world/farms.js`             | ported |
 | Funicular, bridges, lanterns, dock+boat             | `world/transport.js`         | ported |
-| People, sheep, ducks, heron, fish, butterflies      | `systems/fauna.js`           | ported |
-| Fireflies + clouds                                  | `systems/fauna.js`           | ported |
+| Sheep, ducks, heron, fish, butterflies              | `systems/fauna.js`           | ported |
+| People → CC0 character NPCs (idle + walkers)        | `systems/villagers.js`       | replaced (rigged GLB) |
+| Fireflies + clouds                                  | `systems/fauna.js`           | ported (clouds thinned) |
 | Day/night cycle + toggle                            | `core/daynight.js`           | ported |
 | Hotspots + info panels                              | `ui/hotspots.js`             | ported |
 | Reactive alarm (fire→sensor→brain pulse)            | `systems/network.js` + `fire.js` | added (beyond prototype) |

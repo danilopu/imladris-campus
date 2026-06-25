@@ -1,8 +1,11 @@
 import {
   PerspectiveCamera, Group, Mesh, MeshStandardMaterial,
-  CylinderGeometry, SphereGeometry, BoxGeometry, IcosahedronGeometry, Vector3, MathUtils
+  CylinderGeometry, SphereGeometry, BoxGeometry, IcosahedronGeometry, Vector3, MathUtils,
+  AnimationMixer, LoopRepeat
 } from 'three';
 import { terrain } from '../world/terrain.js';
+import { loadGltf } from '../assets/loader.js';
+import { MODELS } from '../assets/manifest.js';
 import { WORLD } from '../config.js';
 
 const HALF = WORLD.half;
@@ -75,8 +78,37 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
   const avatar = makeScientist(); group.add(avatar.root);
   group.visible = false;
 
+  // Real CC0 character avatar with baked Idle/Walk/Run clips. Loads async over the procedural
+  // scientist (instant, never blocks); on arrival the procedural body hides and the rig's
+  // AnimationMixer drives the walk cycle, crossfading by speed.
+  let mixer = null, actions = null, curAction = null;
+  const AVATAR = MODELS.char_worker;
+  if (AVATAR && AVATAR.url) {
+    loadGltf(AVATAR.url).then((gltf) => {
+      const model = gltf.scene;
+      model.scale.setScalar(AVATAR.scale);
+      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+      group.add(model);
+      avatar.root.visible = false;
+      mixer = new AnimationMixer(model);
+      const byName = {};
+      gltf.animations.forEach(c => { byName[c.name] = c; });
+      const make = (n) => { const clip = byName[n]; if (!clip) return null; const a = mixer.clipAction(clip); a.loop = LoopRepeat; return a; };
+      actions = { idle: make('Idle'), walk: make('Walk'), run: make('Run') };
+      curAction = actions.idle || actions.walk;
+      if (curAction) { curAction.play(); }
+    }).catch(() => { /* keep procedural scientist */ });
+  }
+  function setClip(next) {
+    if (!next || next === curAction) return;
+    next.reset().fadeIn(0.18).play();
+    if (curAction) curAction.fadeOut(0.18);
+    curAction = next;
+  }
+
   const pos = new Vector3(start[0], terrain(start[0], start[1]), start[1]);
   const vel = { x: 0, z: 0 };
+  const _fwd = new Vector3(), _right = new Vector3(); // reused each frame (no per-frame GC)
   let active = false, heading = 0, walk = 0, swing = 0;
   let camYaw = Math.PI, camPitch = 0.42, camDist = 9;
 
@@ -90,10 +122,47 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
   addEventListener('keydown', e => key(e, true));
   addEventListener('keyup', e => key(e, false));
 
-  let dragging = false, lastX = 0, lastY = 0;
-  dom.addEventListener('pointerdown', e => { if (!active) return; dragging = true; lastX = e.clientX; lastY = e.clientY; });
-  addEventListener('pointermove', e => { if (!active || !dragging) return; camYaw -= (e.clientX - lastX) * 0.005; camPitch = clamp(camPitch - (e.clientY - lastY) * 0.005, 0.08, 1.3); lastX = e.clientX; lastY = e.clientY; });
-  addEventListener('pointerup', () => { dragging = false; });
+  // camera look-drag (mouse, or right-half touch) + a left-half virtual joystick for touch
+  // movement. Both are pointer-id-tracked so two fingers (walk + look) work independently.
+  let dragging = false, dragId = null, lastX = 0, lastY = 0;
+  let joyId = null, joyOX = 0, joyOY = 0, joyVX = 0, joyVY = 0; // joystick vector, -1..1
+  const JOY_R = 46;
+
+  // minimal on-screen joystick (shown only while a touch is steering); desktop never sees it
+  let joyBase = null, joyKnob = null;
+  try {
+    joyBase = document.createElement('div'); joyKnob = document.createElement('div');
+    joyBase.style.cssText = 'position:fixed;width:96px;height:96px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);background:rgba(255,255,255,0.08);pointer-events:none;z-index:50;display:none;transform:translate(-50%,-50%)';
+    joyKnob.style.cssText = 'position:fixed;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.55);pointer-events:none;z-index:51;display:none;transform:translate(-50%,-50%)';
+    document.body.append(joyBase, joyKnob);
+  } catch (e) { /* no DOM — skip the visual */ }
+  function showJoy(on) { if (joyBase) joyBase.style.display = joyKnob.style.display = on ? 'block' : 'none'; }
+  function placeJoy() {
+    if (!joyBase) return;
+    joyBase.style.left = joyOX + 'px'; joyBase.style.top = joyOY + 'px';
+    joyKnob.style.left = (joyOX + joyVX * JOY_R) + 'px'; joyKnob.style.top = (joyOY + joyVY * JOY_R) + 'px';
+  }
+
+  dom.addEventListener('pointerdown', e => {
+    if (!active) return;
+    if (e.pointerType === 'touch' && joyId === null && e.clientX < innerWidth * 0.5) {
+      joyId = e.pointerId; joyOX = e.clientX; joyOY = e.clientY; joyVX = joyVY = 0; placeJoy(); showJoy(true);
+    } else { dragging = true; dragId = e.pointerId; lastX = e.clientX; lastY = e.clientY; }
+  });
+  addEventListener('pointermove', e => {
+    if (!active) return;
+    if (e.pointerId === joyId) {
+      joyVX = clamp((e.clientX - joyOX) / JOY_R, -1, 1); joyVY = clamp((e.clientY - joyOY) / JOY_R, -1, 1); placeJoy();
+    } else if (dragging && e.pointerId === dragId) {
+      camYaw -= (e.clientX - lastX) * 0.005; camPitch = clamp(camPitch - (e.clientY - lastY) * 0.005, 0.08, 1.3); lastX = e.clientX; lastY = e.clientY;
+    }
+  });
+  function endPointer(e) {
+    if (e.pointerId === joyId) { joyId = null; joyVX = joyVY = 0; showJoy(false); }
+    else if (e.pointerId === dragId) { dragging = false; dragId = null; }
+  }
+  addEventListener('pointerup', endPointer);
+  addEventListener('pointercancel', endPointer);
   dom.addEventListener('wheel', e => { if (!active) return; e.preventDefault(); camDist = clamp(camDist * (1 + Math.sign(e.deltaY) * 0.1), 4, 26); }, { passive: false });
 
   function resize() { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
@@ -111,18 +180,22 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
     resize(); placeCamera();
     try { window.focus(); dom.tabIndex = -1; dom.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
-  function exit() { active = false; group.visible = false; keys.clear(); dragging = false; }
+  function exit() { active = false; group.visible = false; keys.clear(); dragging = false; dragId = null; joyId = null; joyVX = joyVY = 0; showJoy(false); }
 
   function update(dt) {
     if (!active) return;
-    const fwd = new Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw)), right = new Vector3(-fwd.z, 0, fwd.x);
+    const fwd = _fwd.set(-Math.sin(camYaw), 0, -Math.cos(camYaw)), right = _right.set(-fwd.z, 0, fwd.x);
     let mx = 0, mz = 0;
     if (keys.has('w') || keys.has('ArrowUp')) { mx += fwd.x; mz += fwd.z; }
     if (keys.has('s') || keys.has('ArrowDown')) { mx -= fwd.x; mz -= fwd.z; }
     if (keys.has('d') || keys.has('ArrowRight')) { mx += right.x; mz += right.z; }
     if (keys.has('a') || keys.has('ArrowLeft')) { mx -= right.x; mz -= right.z; }
+    // touch joystick: push direction → world move (up = forward), magnitude = analog speed
+    let joyMag = 0;
+    if (joyId !== null) { joyMag = Math.min(Math.hypot(joyVX, joyVY), 1); mx += right.x * joyVX - fwd.x * joyVY; mz += right.z * joyVX - fwd.z * joyVY; }
     const len = Math.hypot(mx, mz), maxSp = keys.has('Shift') ? 12 : 6;
-    const tx = len > 0 ? (mx / len) * maxSp : 0, tz = len > 0 ? (mz / len) * maxSp : 0;
+    const speedMul = joyId !== null && keys.size === 0 ? joyMag : 1; // analog on stick, full on keys
+    const tx = len > 0 ? (mx / len) * maxSp * speedMul : 0, tz = len > 0 ? (mz / len) * maxSp * speedMul : 0;
     const k = 1 - Math.exp(-9 * dt);
     vel.x += (tx - vel.x) * k; vel.z += (tz - vel.z) * k;
 
@@ -135,15 +208,23 @@ export function createExplore({ dom, start = [-22, -44], resolve = null }) {
     if (sp > 0.4) heading = dampAngle(heading, Math.atan2(vel.x, vel.z), 12, dt);
     group.position.set(pos.x, pos.y, pos.z); group.rotation.y = heading;
 
-    // procedural walk cycle: legs/arms swing with speed, eased toward neutral at rest
-    walk += dt * sp * 1.7;
-    const targetSwing = Math.min(sp / 6, 1);
-    swing = MathUtils.lerp(swing, targetSwing, 1 - Math.exp(-10 * dt));
-    const a = Math.sin(walk) * 0.6 * swing;
-    avatar.legL.rotation.x = a; avatar.legR.rotation.x = -a;
-    avatar.armL.rotation.x = -a * 0.8; avatar.armR.rotation.x = a * 0.8;
-    avatar.root.position.y = Math.abs(Math.sin(walk)) * 0.05 * swing; // gentle body bob
-    avatar.head.rotation.z = Math.sin(walk * 0.5) * 0.03 * swing;
+    if (mixer) {
+      // rigged avatar: crossfade idle ↔ walk ↔ run by speed, advance the mixer
+      if (actions) setClip(sp < 0.5 ? actions.idle : (sp > 8 ? (actions.run || actions.walk) : actions.walk));
+      // sync the loop's playback rate to ground speed so feet don't skate
+      if (curAction && curAction !== actions.idle) curAction.timeScale = MathUtils.clamp(sp / 5, 0.6, 1.8);
+      mixer.update(dt);
+    } else {
+      // procedural walk cycle fallback: legs/arms swing with speed, eased toward neutral at rest
+      walk += dt * sp * 1.7;
+      const targetSwing = Math.min(sp / 6, 1);
+      swing = MathUtils.lerp(swing, targetSwing, 1 - Math.exp(-10 * dt));
+      const a = Math.sin(walk) * 0.6 * swing;
+      avatar.legL.rotation.x = a; avatar.legR.rotation.x = -a;
+      avatar.armL.rotation.x = -a * 0.8; avatar.armR.rotation.x = a * 0.8;
+      avatar.root.position.y = Math.abs(Math.sin(walk)) * 0.05 * swing; // gentle body bob
+      avatar.head.rotation.z = Math.sin(walk * 0.5) * 0.03 * swing;
+    }
 
     placeCamera();
   }

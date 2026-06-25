@@ -11,7 +11,7 @@ import { buildColliders, makeResolver } from './core/collision.js';
 import { buildIsland } from './world/terrain.js';
 import { buildWater } from './world/water.js';
 import { buildVegetation } from './world/vegetation.js';
-import { buildBuildings, livePos } from './world/buildings.js';
+import { buildBuildings } from './world/buildings.js';
 import { buildFarms } from './world/farms.js';
 import { buildTransport } from './world/transport.js';
 import { buildSectors } from './world/sectors.js';
@@ -19,7 +19,9 @@ import { buildZoneOverlay } from './world/zones.js';
 import { buildNetwork } from './systems/network.js';
 import { buildAgents } from './systems/agents.js';
 import { buildFauna } from './systems/fauna.js';
+import { buildVillagers } from './systems/villagers.js';
 import { createDirector } from './systems/director.js';
+import { createTour } from './systems/tour.js';
 import { buildLogistics } from './systems/logistics.js';
 import { buildDispatcher } from './systems/dispatcher.js';
 import { buildMycelium } from './systems/mycelium.js';
@@ -74,6 +76,10 @@ function boot() {
   const fauna = buildFauna(pondC);
   scene.add(fauna.group); loop.add(fauna);
 
+  // CC0 character NPCs — idle residents + strollers around the riverside hamlet
+  const villagers = buildVillagers();
+  scene.add(villagers.group); loop.add(villagers);
+
   // Director: the job bus / master-loop spine. Logistics is the first content on it.
   let pushTicker = () => {};                                   // wired to the UI ticker once it exists
   const director = createDirector({ onLog: (t, c) => pushTicker(t, c) });
@@ -122,18 +128,23 @@ function boot() {
 
   // third-person walk-around mode (CC0 character + collision against buildings)
   const colliders = buildColliders([buildings.group, farms.group, logistics.group]);
-  const explore = createExplore({ dom: renderer.domElement, start: [livePos.x, livePos.z], resolve: makeResolver(colliders) });
+  // spawn on open ground in the hamlet square (livePos itself now sits on a house plot)
+  const explore = createExplore({ dom: renderer.domElement, start: [-40, -39], resolve: makeResolver(colliders) });
   scene.add(explore.group); loop.add(explore);
 
   // game-like Explore HUD: minimap + system status
   const hud = buildHUD({ explore, director, daynight, getFps: loop.getFps });
   loop.add(hud);
 
+  // guided tour: auto-advancing sector flythrough with narration (uses the damped controls)
+  const tour = createTour({ controls, sectors });
+  loop.add(tour);
+
   postfx.setCamera(camera); // start in diorama (ortho)
   const exploreCtl = {
     toggle() {
       if (explore.active) { explore.exit(); postfx.setCamera(camera); controls.setAuto(true); hotspots.setEnabled(true); hud.hide(); }
-      else { explore.enter(); postfx.setCamera(explore.camera); controls.setAuto(false); hotspots.setEnabled(false); hud.show(); }
+      else { tour.stop(); explore.enter(); postfx.setCamera(explore.camera); controls.setAuto(false); hotspots.setEnabled(false); hud.show(); }
       return explore.active;
     }
   };
@@ -146,8 +157,9 @@ function boot() {
   let fireRef = { trigger() {}, get active() { return false; } };
   const quality = createQuality({ renderer, postfx, key: lights.key });
   const paper = buildPaper();
-  const ui = buildUI({ controls, sectors, fire: { trigger: () => fireRef.trigger() }, night: daynight, systems: hotspots, explore: exploreCtl, quality, plan: planCtl, notes: annotations, paper, mycelium: myceliumCtl });
+  const ui = buildUI({ controls, sectors, fire: { trigger: () => fireRef.trigger() }, night: daynight, systems: hotspots, explore: exploreCtl, quality, plan: planCtl, notes: annotations, paper, mycelium: myceliumCtl, tour });
   pushTicker = ui.setTicker; // Director job labels now flow to the ticker
+  tour.setTicker(ui.setTicker); // tour narration flows to the same ticker
 
   const fire = buildFire(agents, ui.setTicker, network);
   fireRef = fire;

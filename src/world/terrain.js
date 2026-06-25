@@ -29,6 +29,10 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 export function riverX(z) { return WORLD.river.amp * Math.sin(z * WORLD.river.freq); }
 // distance from (x,z) to the mountain-river (tributary) channel — lets vegetation keep its banks clear
 export function tribDist(x, z) { return segDist(x, z, WORLD.tributary.a, WORLD.tributary.b); }
+// distance to the western creek — vegetation reads this too, so trees stop crowding it
+export function streamDist(x, z) { return segDist(x, z, WORLD.stream.a, WORLD.stream.b); }
+// distance to the main river centre-line
+export function riverDist(x, z) { return Math.abs(x - riverX(z)); }
 function gauss(x, z, cx, cz, s) { const dx = x - cx, dz = z - cz; return Math.exp(-((dx * dx + dz * dz) / (2 * s * s))); }
 function segDist(px, pz, a, b) {
   const dx = b.x - a.x, dz = b.z - a.z, L = dx * dx + dz * dz || 1;
@@ -38,21 +42,35 @@ function segDist(px, pz, a, b) {
 
 // Single source of truth for ground height — every placement samples this.
 export function terrain(x, z) {
-  let roll = (Math.sin(x * 0.06) * Math.cos(z * 0.05) + Math.sin(x * 0.09 + 1) * 0.5) * 1.7;
-  let hill = gauss(x, z, 22, 54, 25) * 17 + gauss(x, z, -30, 60, 18) * 8;
-  // main river widens + deepens below the junction (z≈18) where the mountain river unites
-  const below = smooth(20, -14, z); // 0 above the junction → 1 well downstream
-  const river = -Math.exp(-((x - riverX(z)) ** 2) / (2 * (49 + below * 48))) * (3.2 + below * 1.4);
-  // mountain river: a deeper, wider tributary from the high ridge joining at a sharp angle
+  const roll = (Math.sin(x * 0.06) * Math.cos(z * 0.05) + Math.sin(x * 0.09 + 1) * 0.5) * 1.7;
+
+  // proximity to each channel centre-line
+  const dM = x - riverX(z);
   const rb = segDist(x, z, WORLD.tributary.a, WORLD.tributary.b);
-  const trib = -Math.exp(-(rb * rb) / (2 * 46)) * 4.0;
-  // Flatten the LAND toward the rim first, then carve the rivers in afterwards — so the
-  // channels persist all the way to (and over) the edge instead of drying up. The interior
-  // is unchanged (edge factor ≈ 0 there), so placements are unaffected.
+  const sb = segDist(x, z, WORLD.stream.a, WORLD.stream.b);
+
+  // Research-ridge hill (+ a small north knoll) — but SUPPRESSED along the river & tributary so
+  // the water flows through a visible VALLEY instead of climbing the hill and "drying up". This
+  // is the fix for the river vanishing into the ridge in the north.
+  const mainValley = Math.exp(-(dM * dM) / (2 * 150));
+  const tribValley = Math.exp(-(rb * rb) / (2 * 130));
+  const hill = (gauss(x, z, 22, 54, 25) * 17 + gauss(x, z, -30, 60, 18) * 8)
+    * (1 - 0.82 * mainValley) * (1 - 0.82 * tribValley);
+
   let land = roll + hill + 2.2;
+  // Flatten toward the rim so the island reads as a clean floating slab.
   const m = Math.max(Math.abs(x), Math.abs(z)) / HALF;
   land = lerp(land, 1.0, smooth(0.84, 1.0, m));
-  return land + river + trib;
+
+  // Carve the channels AFTER the rim flatten, and TAPER them up toward the rim so the water
+  // rises to meet the edge and spills over (a source in the north, the overflow in the south)
+  // instead of sitting in a deep trench hidden below the rim lip.
+  const taper = 1 - 0.7 * smooth(0.80, 1.0, m);
+  const below = smooth(20, -14, z); // 0 above the junction → 1 well downstream
+  const river = -Math.exp(-(dM * dM) / (2 * (40 + below * 36))) * (2.4 + below * 1.0) * taper;
+  const trib = -Math.exp(-(rb * rb) / (2 * 64)) * 3.0 * taper;
+  const stream = -Math.exp(-(sb * sb) / (2 * 12)) * 2.2 * taper;
+  return land + river + trib + stream;
 }
 
 function buildTop() {
@@ -66,10 +84,15 @@ function buildTop() {
   const rand = () => { s = (s * 1664525 + 1013904223) & 0x7fffffff; return s / 0x7fffffff; };
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i), y = terrain(x, z); p.setY(i, y);
-    const d = Math.abs(x - riverX(z)); const col = new Color();
+    // distance to the nearest of the three channels — so every riverbank reads as a sandy
+    // bed, not just the main river (the tributary + western creek used to blend into grass)
+    const dMain = Math.abs(x - riverX(z));
+    const dTrib = segDist(x, z, WORLD.tributary.a, WORLD.tributary.b);
+    const dStream = segDist(x, z, WORLD.stream.a, WORLD.stream.b);
+    const d = Math.min(dMain, dTrib, dStream); const col = new Color();
     if (y > 17) col.copy(cSnow).lerp(cRock, clamp((22 - y) / 8, 0, 1));
     else if (y > 9) col.copy(cRock).lerp(cGrass2, clamp((17 - y) / 9, 0, 1));
-    else if (d < 4.6) col.copy(cSand);
+    else if (d < 5.2) col.copy(cSand);
     else col.copy(cGrass).lerp(cGrass2, rand() * 0.5);
     colors.push(col.r, col.g, col.b);
   }
@@ -130,7 +153,9 @@ function buildKeel() {
 }
 
 function waterMat() {
-  return new MeshStandardMaterial({ color: PALETTE.water, emissive: 0x14485e, emissiveIntensity: 0.5, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.92 });
+  // brighter, more saturated, slightly emissive so the rivers read clearly from the ortho
+  // diorama angle (and catch a faint bloom) instead of sinking into shadow in their channels
+  return new MeshStandardMaterial({ color: 0x57c4e0, emissive: 0x2f86a8, emissiveIntensity: 0.6, roughness: 0.1, metalness: 0.12, transparent: true, opacity: 0.96 });
 }
 
 // Returns { group, terrain, riverCurves, pondC } for downstream systems.
@@ -138,24 +163,28 @@ export function buildIsland() {
   const group = new Group();
   group.add(buildTop(), buildBlock(), buildKeel());
 
-  // a soft collar of cloud billboards wrapping the island base — nestled in the sky
+  // a sparse collar of cloud billboards tucked under the island base — just enough to read
+  // as "floating in the sky" without crowding/fogging the diorama (was 30, now 14, fainter)
   const cTex = cloudTexture();
-  for (let i = 0; i < 30; i++) {
-    const a = (i / 30) * 6.28 + (Math.random() - 0.5) * 0.4, r = HALF * (0.92 + Math.random() * 0.5);
-    const cl = makeCloud(cTex, 34 + Math.random() * 28);
-    cl.position.set(Math.cos(a) * r, -7 + Math.random() * 13, Math.sin(a) * r);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * 6.28 + (Math.random() - 0.5) * 0.4, r = HALF * (1.0 + Math.random() * 0.5);
+    const cl = makeCloud(cTex, 30 + Math.random() * 24);
+    cl.material.opacity = 0.7;
+    cl.position.set(Math.cos(a) * r, -10 + Math.random() * 11, Math.sin(a) * r);
     group.add(cl);
   }
 
+  // Lift each water ribbon higher in its carved channel so the surface sits near bank level
+  // and is clearly visible from the diorama angle (it used to sit deep in shadow at the bed).
   const riverCurves = [];
-  { const pts = []; for (let z = 92; z >= -92; z -= 5) pts.push(new Vector3(riverX(z), terrain(riverX(z), z) + 0.5, z)); riverCurves.push(new CatmullRomCurve3(pts)); }
-  { const pts = []; const a = WORLD.tributary.a, b = WORLD.tributary.b; for (let i = 0; i <= 12; i++) { const t = i / 12, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); pts.push(new Vector3(x, terrain(x, z) + 0.6, z)); } riverCurves.push(new CatmullRomCurve3(pts)); }
-  { const pts = []; const a = WORLD.stream.a, b = WORLD.stream.b; for (let i = 0; i <= 10; i++) { const t = i / 10, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); pts.push(new Vector3(x, terrain(x, z) + 0.5, z)); } riverCurves.push(new CatmullRomCurve3(pts)); }
+  { const pts = []; for (let z = 92; z >= -92; z -= 5) pts.push(new Vector3(riverX(z), terrain(riverX(z), z) + 1.3, z)); riverCurves.push(new CatmullRomCurve3(pts)); }
+  { const pts = []; const a = WORLD.tributary.a, b = WORLD.tributary.b; for (let i = 0; i <= 24; i++) { const t = i / 24, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); pts.push(new Vector3(x, terrain(x, z) + 1.5, z)); } riverCurves.push(new CatmullRomCurve3(pts)); }
+  { const pts = []; const a = WORLD.stream.a, b = WORLD.stream.b; for (let i = 0; i <= 10; i++) { const t = i / 10, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); pts.push(new Vector3(x, terrain(x, z) + 0.85, z)); } riverCurves.push(new CatmullRomCurve3(pts)); }
 
-  const radii = [5.2, 3.9, 1.6]; // main river, mountain river, western creek
+  const radii = [6.0, 6.0, 2.6]; // main river, mountain river, western creek
   riverCurves.forEach((curve, i) => {
-    const geo = new TubeGeometry(curve, 110, radii[i], 8, false); geo.scale(1, 0.3, 1);
-    const m = new Mesh(geo, waterMat()); m.receiveShadow = true; if (i === 2) m.position.y -= 0.15; group.add(m);
+    const geo = new TubeGeometry(curve, 120, radii[i], 10, false); geo.scale(1, 0.3, 1);
+    const m = new Mesh(geo, waterMat()); m.receiveShadow = true; group.add(m);
   });
 
   // pond at the cascade base

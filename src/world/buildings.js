@@ -2,7 +2,7 @@ import {
   Group, Mesh, MeshStandardMaterial, BoxGeometry, ConeGeometry, CylinderGeometry,
   SphereGeometry, TorusGeometry, DoubleSide
 } from 'three';
-import { terrain } from './terrain.js';
+import { terrain, riverX } from './terrain.js';
 import { place, loadModel } from '../assets/loader.js';
 import { MODELS } from '../assets/manifest.js';
 
@@ -14,16 +14,18 @@ const rand = Math.random;
 // assets/manifest.js. Numerous/instanced props (pavilions, solar, sensors) stay
 // procedural-direct for now — they're lower asset priority (see ASSETS.md).
 // Sector anchors (shared with transport/hotspots).
-export const corePos = { x: 22, z: 50 };   // Research Ridge
-export const livePos = { x: -22, z: -44 };  // Living Quarter
+export const corePos = { x: 46, z: 50 };   // Research Ridge — east of BOTH the main river & the tributary
+export const livePos = { x: -34, z: -46 };  // Living Quarter — west-bank hamlet square
 export const greenPos = { x: 8, z: -26 };   // Greenworks
 export const resPos = { x: -8, z: 60 };     // reservoir / storage
 export const vaultPos = { x: -20, z: 54 };  // Memory — data & seed vault
 
 // developed plots that vegetation should keep clear, so buildings aren't buried in forest
 export const clearings = [
-  { x: 22, z: 50, r: 18 }, { x: 11, z: 44, r: 9 }, { x: 38, z: 44, r: 9 }, { x: 36, z: 58, r: 9 },
-  { x: 8, z: -26, r: 15 }, { x: 17, z: -23, r: 8 }, { x: -22, z: -44, r: 18 },
+  { x: 46, z: 50, r: 20 }, { x: 11, z: 44, r: 9 }, { x: 38, z: 44, r: 9 },
+  { x: 8, z: -26, r: 15 }, { x: 17, z: -23, r: 8 },
+  // riverside hamlet: west bank square + market, a few east-bank cottages, the chicken farm
+  { x: -34, z: -48, r: 17 }, { x: -7, z: -44, r: 10 }, { x: -55, z: -37, r: 12 },
   { x: -50, z: 6, r: 14 }, { x: -20, z: 54, r: 9 }, { x: 46, z: -4, r: 9 }, { x: -46, z: 22, r: 8 }
 ];
 
@@ -31,6 +33,7 @@ export function buildBuildings() {
   const group = new Group();
   const glow = [];          // emissive materials that brighten at night
   const turbines = [];      // blade groups to spin
+  const chickens = [];      // { g, phase } hens pecking in the farm yard
   const sensorTips = [];    // { mat, base, phase } pulsing nervous-system endpoints
   let beaconMat = null;     // comms-mast warning beacon
   let computeMat = null;    // data-center compute load — brightens at midday surplus
@@ -70,11 +73,6 @@ export function buildBuildings() {
     const win = box(w + 0.06, wallH * 0.42, d + 0.06, 0xffce7a, { emissive: 0xffce7a, ei: 0.5, rough: 0.3 }); win.position.y = wallH * 0.5; g.add(win); glow.push(win.material);
     const roof = new Mesh(new ConeGeometry(Math.max(w, d) * 0.92, 2.4, 4), new MeshStandardMaterial({ color: roofC, roughness: 0.7, flatShading: true, metalness: 0.05 })); roof.rotation.y = Math.PI / 4; roof.position.y = wallH + 1.2; roof.castShadow = true; g.add(roof);
     return g;
-  }
-  // place a swappable dwelling: real CC0 model with a pavilion fallback
-  function dwelling(id, x, z) {
-    const M = MODELS[id], by = terrain(x, z);
-    group.add(place(M ? M.url : null, () => pavilionFab(4.5, 4.5, 0xc59a64, 0x5f8a59), { position: [x, by, z], scale: M ? M.scale : 1, rotationY: rand() * Math.PI * 2 }));
   }
 
   // --- local-origin fallback factories for the hero buildings ---
@@ -148,16 +146,74 @@ export function buildBuildings() {
     return g;
   }
 
-  // research core + observatory (hill, north) — labs procedural, dome is a hero
-  group.add(pavilion(corePos.x, corePos.z, 9, 7, 0xdfe3e6, 0x5a6b74));
-  group.add(pavilion(corePos.x + 9, corePos.z - 4, 6, 6, 0xcfd6da, 0x55656e));
-  hero('observatory', corePos.x - 3, corePos.z + 9, observatoryFab);
+  // research core + observatory — east ridge, on the bank above the river valley (labs
+  // procedural, dome is a hero). Spaced so the rivers read clearly past them, not through them.
+  group.add(pavilion(corePos.x - 2, corePos.z, 9, 7, 0xdfe3e6, 0x5a6b74));
+  group.add(pavilion(corePos.x + 6, corePos.z + 2, 6, 6, 0xcfd6da, 0x55656e));
+  hero('observatory', corePos.x, corePos.z + 8, observatoryFab);
 
-  // living complex (low, by river)
-  for (let i = 0; i < 8; i++) {
-    const ang = i * 0.8, rx = livePos.x + Math.cos(ang) * (7 + i * 1.7) + (i % 2 ? 3 : -2), rz = livePos.z + Math.sin(ang) * (6 + i * 1.1);
-    group.add(pavilion(rx, rz, 4.6 + rand() * 1.6, 4.6 + rand() * 1.6, 0xc89a64, 0x5f8a59));
+  // --- riverside hamlet: CC0 KayKit village houses on the BANKS (never in the water),
+  // a footbridge + gate-tower spanning the river, a dock, a market square, and (over in
+  // Wildwood) a fenced chicken farm. Addresses the D2/B3 review notes directly. ---
+  const HOUSE_IDS = ['vil_house1', 'vil_house2', 'vil_house3'];
+  // place a village model at world (x,z); if faceTo given, rotate to face that point
+  function vil(id, x, z, faceTo) {
+    const M = MODELS[id], by = terrain(x, z);
+    const ry = faceTo ? Math.atan2(faceTo[0] - x, faceTo[1] - z) : rand() * Math.PI * 2;
+    group.add(place(M ? M.url : null, () => pavilionFab(4.4, 4.4, 0xc59a64, 0x5f8a59), { position: [x, by, z], scale: M ? M.scale : 1, rotationY: ry }));
   }
+
+  function bridge(z) {
+    const cx = riverX(z), wBank = cx - 12, eBank = cx + 12, len = eBank - wBank;
+    const yDeck = Math.max(terrain(wBank, z), terrain(eBank, z)) + 0.5;
+    const deck = box(len, 0.4, 4.2, 0x8a6a44, { rough: 0.9 }); deck.position.set((wBank + eBank) / 2, yDeck, z); group.add(deck);
+    [-2.1, 2.1].forEach(dz => {
+      const rail = box(len, 0.45, 0.16, 0x6b4a30, { rough: 1 }); rail.position.set((wBank + eBank) / 2, yDeck + 0.8, z + dz); group.add(rail);
+      for (let p = 0; p <= 6; p++) { const px = wBank + len * p / 6; const post = box(0.2, 1.1, 0.2, 0x6b4a30, { rough: 1 }); post.position.set(px, yDeck + 0.55, z + dz); group.add(post); }
+    });
+    // piers dropping into the channel
+    [cx - 3, cx + 3].forEach(px => { const pier = new Mesh(new CylinderGeometry(0.4, 0.5, 9, 7), new MeshStandardMaterial({ color: 0x6b4a30, roughness: 1, flatShading: true })); pier.position.set(px, yDeck - 4.5, z); pier.castShadow = true; group.add(pier); });
+    // the "bridge-house": a gate-tower on the west abutment
+    vil('vil_tower', wBank - 1.5, z, [cx, z]);
+  }
+
+  (function hamlet() {
+    // houses lining the west bank (all face the river), sparser cottages on the east bank
+    const zs = [-38, -44, -50, -56, -62];
+    zs.forEach((z, i) => {
+      const cx = riverX(z);
+      const wx = cx - (11 + rand() * 3), wz = z + (rand() - 0.5) * 3;
+      vil(HOUSE_IDS[i % 3], wx, wz, [cx, z]);
+      if (i % 2 === 0) { const ex = cx + (11 + rand() * 3), ez = z + (rand() - 0.5) * 3; vil(HOUSE_IDS[(i + 1) % 3], ex, ez, [cx, z]); }
+    });
+    // market square + clutter set back on the west bank
+    vil('vil_market', -44, -48, [riverX(-48), -48]);
+    vil('vil_barrel', -40.5, -45.5); vil('vil_crate', -42, -50); vil('vil_logs', -47, -50.5);
+    // dock at the water's edge
+    { const z = -46, cx = riverX(z); vil('vil_dock', cx - 7, z, [cx, z]); }
+    // footbridge + gate-tower across the river
+    bridge(-50);
+  })();
+
+  (function chickenFarm() {
+    const cx = -55, cz = -37;                       // Wildwood · B3 (review note)
+    vil('vil_farm', cx, cz);                         // tilled yard
+    vil('vil_house3', cx - 6, cz - 3, [cx, cz]);     // hen house / coop
+    vil('vil_barrel', cx + 4.5, cz + 2.5);
+    // low picket fence ring
+    for (let a = 0; a < 16; a++) { const an = a / 16 * 6.28, fx = cx + Math.cos(an) * 7, fz = cz + Math.sin(an) * 7; const post = box(0.24, 1.0, 0.24, 0xc0a06a, { rough: 1 }); post.position.set(fx, terrain(fx, fz) + 0.5, fz); group.add(post); }
+    // hens pecking in the yard (animated in update)
+    for (let i = 0; i < 7; i++) {
+      const an = rand() * 6.28, rr = rand() * 5, x = cx + Math.cos(an) * rr, z = cz + Math.sin(an) * rr, g = new Group();
+      const bodyC = i % 3 === 0 ? 0x8a5a3a : 0xf2efe6;
+      const body = new Mesh(new SphereGeometry(0.34, 8, 6), new MeshStandardMaterial({ color: bodyC, roughness: 0.95, flatShading: true })); body.scale.set(1, 0.9, 1.25); body.position.y = 0.45; body.castShadow = true; g.add(body);
+      const head = new Mesh(new SphereGeometry(0.2, 7, 6), new MeshStandardMaterial({ color: bodyC, roughness: 0.95, flatShading: true })); head.position.set(0, 0.78, 0.3); g.add(head);
+      const beak = new Mesh(new ConeGeometry(0.07, 0.18, 5), new MeshStandardMaterial({ color: 0xe0a020 })); beak.rotation.x = Math.PI / 2; beak.position.set(0, 0.76, 0.52); g.add(beak);
+      const comb = new Mesh(new SphereGeometry(0.09, 6, 5), new MeshStandardMaterial({ color: 0xd64a3a, roughness: 0.9 })); comb.position.set(0, 0.95, 0.28); g.add(comb);
+      g.position.set(x, terrain(x, z), z); g.rotation.y = rand() * 6.28; group.add(g);
+      chickens.push({ g, phase: rand() * 6.28, baseY: terrain(x, z) });
+    }
+  })();
 
   // greenhouses + data center (the "brain")
   hero('greenhouse', greenPos.x, greenPos.z, greenhouseFab);
@@ -192,7 +248,7 @@ export function buildBuildings() {
 
   // comms mast with blinking beacon
   {
-    const x = corePos.x - 14, z = corePos.z - 2, by = terrain(x, z), g = new Group();
+    const x = corePos.x + 8, z = corePos.z - 2, by = terrain(x, z), g = new Group(); // east of the core, clear of the river
     const mast = new Mesh(new CylinderGeometry(0.25, 0.5, 20, 6), new MeshStandardMaterial({ color: 0xc1c6ce, roughness: 0.5, metalness: 0.3 })); mast.position.y = 10; mast.castShadow = true; g.add(mast);
     for (let k = 1; k < 4; k++) { const ring = new Mesh(new TorusGeometry(0.95 - k * 0.16, 0.06, 6, 12), new MeshStandardMaterial({ color: 0xc1c6ce })); ring.position.y = 4 + k * 4.6; ring.rotation.x = Math.PI / 2; g.add(ring); }
     beaconMat = new MeshStandardMaterial({ color: 0xff5a4a, emissive: 0xff5a4a, emissiveIntensity: 1.4 });
@@ -200,12 +256,10 @@ export function buildBuildings() {
     g.position.set(x, by, z); group.add(g);
   }
 
-  // densify dwellings — real CC0 KayKit buildings (cycled for variety), pavilion fallback
-  const resModels = ['res_a', 'res_b', 'res_c', 'res_d'];
-  [[-30, -50], [-36, -42], [-16, -38], [-40, -52], [2, -50]].forEach((p, i) => dwelling(resModels[i % resModels.length], p[0], p[1]));
+  // (the living quarter is now the riverside hamlet built above — houses on the banks)
 
   // varied research facilities (heroes)
-  hero('dome_hall', 36, 58, domeHallFab);
+  hero('dome_hall', 50, 44, domeHallFab); // east of the tributary, beside the research cluster // moved off the tributary channel (was in the river)
   hero('glass_tower', 11, 44, glassTowerFab);
   hero('ring_lab', 38, 44, ringBuildingFab);
   hero('water_tower', -46, 22, waterTowerFab);
@@ -231,6 +285,8 @@ export function buildBuildings() {
   function update(dt, elapsed) {
     const now = elapsed * 1000;
     turbines.forEach((b, i) => { b.rotation.z += dt * (1.0 + i * 0.15); });
+    // hens peck: a gentle forward dip + tiny hop, offset per bird
+    chickens.forEach(c => { c.phase += dt * (1.4 + 0.3 * Math.sin(c.phase)); const peck = Math.max(0, Math.sin(c.phase * 2)); c.g.rotation.x = peck * 0.4; c.g.position.y = c.baseY + (1 - peck) * 0.04; });
     sensorTips.forEach(s => { s.mat.emissiveIntensity = s.base * (0.7 + 0.4 * Math.sin(now * 0.004 + s.phase)); });
     if (beaconMat) beaconMat.emissiveIntensity = Math.sin(now * 0.004) > 0.6 ? 2.2 : 0.35;
     // metabolic heartbeat: reservoir fills at noon, drains at dusk; compute follows surplus
